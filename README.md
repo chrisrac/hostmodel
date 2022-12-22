@@ -30,19 +30,21 @@ The *hostmodel* package requires the following:
 
 
 ### Usage
->Documentation will be published according to work timeframe.
+**This is unpublished pre-alpha version repository.**
 
->**This is unpublished pre-alpha version repository.**
+**Please refer to run_script.py for running example.** 
 
-> Additional stages will be published during development process. 
+> Documentation will be published according to work timeframe.
 
 **Errors and exceptions might occur at this stage.**
 
+
 ### Project development timeframe:
-- [x] pre-alpha code
-- [ ] alpha module documentation
-- [ ] alpha release (v.0.0.1)
-- [x] data preprocessor
+- [x] pre-alpha code `published: 12/21/2022`
+- [x] pre-alpha in-module documentation `published: 12/21/2022`
+- [x] pre-alpha release (v.0.0.1) `published: 12/21/2022`
+- [x] data preprocessor `published: 12/21/2022`
+- [ ] more output control in host modules
 - [ ] testing and debugging
 - [ ] postprocessor for tables and graphs
 - [ ] exceptions and errors handling
@@ -58,12 +60,12 @@ The *hostmodel* package requires the following:
 
 ### Known issues:
 - [ ] inconsistent naming
-- [ ] broken execution link at topological analysis stage
-- [ ] returns inconsistencies
+- [x] broken execution link at topological analysis stage `fixed: 12/21/2022, included in: v.0.0.1`
+- [x] returns inconsistencies `fixed: 12/21/2022, included in: v.0.0.1`
 
 ### Additional content:
+- [ ] add decision for selector_cont if RMSE are same according to decision order: chi2, MWU
 - [ ] function to recreate "y_pred" and function object from parameters returned if "include_pred==False"
-- [ ] topological analysis // threshold addition along --
 
 ### Known limitations:
 - [ ] lack of magnitude solver
