@@ -44,7 +44,7 @@ The *hostmodel* package requires the following:
 - [x] pre-alpha in-module documentation `published: 12/21/2022`
 - [x] pre-alpha release (v.0.0.1) `published: 12/21/2022`
 - [x] data preprocessor `published: 12/21/2022`
-- [x] built in validation workflow `coming in v.0.0.3`
+- [x] built in function returner to recreate and forecast points `coming in v.0.0.3`
 - [x] more output control in host modules `coming in v.0.0.3`
 - [ ] testing and debugging
 - [ ] postprocessor for tables and graphs
