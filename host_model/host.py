@@ -19,10 +19,10 @@ import preprocessor
 # suppress all warnings 
 import warnings
 warnings.filterwarnings("ignore")
-
+import numpy as np
 
 # functions block:
-def occ_harmonics(data, event, beginning='1-1-1979', functions=6):
+def occ_harmonics(data, functions=6):
     '''
     Occurrence harmonics analysis. Performs data processing starting from 
     'beginning' date provided. Uses objective_thresholds for event threshold
@@ -51,17 +51,14 @@ def occ_harmonics(data, event, beginning='1-1-1979', functions=6):
         parameters, r2 value and predicted values.
     '''
     
-    # process input data:
-    processed = preprocessor.data_processor(data,start_date=beginning)
-    # generate occurrences:
-    event_d, aggr_d = preprocessor.variable_generator(processed, event)
+
     # calculate consecutive harmonics:
-    harmonics = framework.harmonic_occ(aggr_d, no_functions=functions)
+    harmonics = framework.harmonic_occ(data, no_functions=functions)
 
     return harmonics
 
 
-def flow_harmonics(data, event, beginning='1-1-1979', functions=6):
+def flow_harmonics(data, functions=6):
     '''
     Flow harmonics analysis. Performs data processing starting from 
     'beginning' date provided. Determines and aggregates data in provided 
@@ -89,17 +86,13 @@ def flow_harmonics(data, event, beginning='1-1-1979', functions=6):
         parameters, r2 value and predicted values.
     '''
     
-    # process input data:
-    processed = preprocessor.data_processor(data,start_date=beginning)
-    # generate flows:
-    event_d, aggr_d = preprocessor.variable_generator(processed, event)
     # calculate consecutive harmonics:   
-    harmonics = framework.harmonic_flow(aggr_d, no_functions=functions)
+    harmonics = framework.harmonic_flow(data, no_functions=functions)
 
     return harmonics
 
-
-def host_occ(data, event, beginning='1-1-1979'):
+            
+def train_occurrence(data):
     '''
     HOST model calling function for occurrence type analysis. Performs series 
     of transformations to generate five harmonic models: tf (trend), 
@@ -133,76 +126,148 @@ def host_occ(data, event, beginning='1-1-1979'):
         sf - seasonal, cf - combined, cs - combined sloped. 
     '''
     
-    # process data:
-    processed = preprocessor.data_processor(data,start_date=beginning)
-    # generate occurrences:
-    event_d, aggr_d = preprocessor.variable_generator(processed, event)
     # create five HOST models:
-    occ_pred, occ_params = framework.host_body(aggr_d['occurrence'])
+    occ_pred, occ_params = framework.host_body(data['occurrence'])
     # perform topological analysis for each model:
-    topo_ts = framework.topology(occ_pred['ts'], aggr_d['occurrence'])
-    topo_tf = framework.topology(occ_pred['tf'], aggr_d['occurrence'])
-    topo_sf = framework.topology(occ_pred['sf'], aggr_d['occurrence'])
-    topo_cf = framework.topology(occ_pred['cf'], aggr_d['occurrence'])
-    topo_cs = framework.topology(occ_pred['cs'], aggr_d['occurrence'])
+    topo_ts = framework.topology(occ_pred['ts'], data['occurrence'])
+    topo_tf = framework.topology(occ_pred['tf'], data['occurrence'])
+    topo_sf = framework.topology(occ_pred['sf'], data['occurrence'])
+    topo_cf = framework.topology(occ_pred['cf'], data['occurrence'])
+    topo_cs = framework.topology(occ_pred['cs'], data['occurrence'])
     # find best fitted model:
     occ_bestfit = framework.selector_cat(topo_tf, topo_ts, topo_sf, topo_cf, topo_cs)
 
+    
     # create best fitted model output:
     if occ_bestfit['best_type']=='ts':
         params = occ_params['ts']
         preds = occ_pred['ts']
+        function, limits = framework.function_return('ts', 
+                                                     occ_bestfit['threshold'],
+                                                     True,
+                                                     params['slope'], 
+                                                     params['amp'], 
+                                                     params['omega'], 
+                                                     params['phase'], 
+                                                     params['offset'])
+        
     elif occ_bestfit['best_type']=='tf':
         params = occ_params['tf']
-        preds = occ_pred['tf']        
+        preds = occ_pred['tf']   
+        function, limits = framework.function_return('tf', 
+                                                     occ_bestfit['threshold'],
+                                                     True,
+                                                     params['amp'], 
+                                                     params['omega'], 
+                                                     params['phase'], 
+                                                     params['offset'])
+        
     elif occ_bestfit['best_type']=='sf':
         params = occ_params['sf']
-        preds = occ_pred['sf']     
+        preds = occ_pred['sf']   
+        function, limits = framework.function_return('sf', 
+                                                     occ_bestfit['threshold'],
+                                                     True,
+                                                     params['amp'], 
+                                                     params['omega'], 
+                                                     params['phase'], 
+                                                     params['offset'])
+        
     # if combined model is best fitted, include component models parameters:
     elif occ_bestfit['best_type']=='cf':
         preds = occ_pred['cf'] 
         temp1 = occ_params['sf']
-        temp1['amp_sf'] = temp1.pop('amp')
-        temp1['omega_sf'] = temp1.pop('omega')
-        temp1['phase_sf'] = temp1.pop('phase')
-        temp1['offset_sf'] = temp1.pop('offset')
-        temp1['freq_sf'] = temp1.pop('freq')
-        temp1['period_sf'] = temp1.pop('period')
-        temp1['r2_sf'] = temp1.pop('r2')
+        postfix = '_sf'
+        temp1 = {str(key) + postfix: val for key, val in temp1.items()}
         temp2 = occ_params['tf']
-        temp2['amp_tf'] = temp2.pop('amp')
-        temp2['omega_tf'] = temp2.pop('omega')
-        temp2['phase_tf'] = temp2.pop('phase')
-        temp2['offset_tf'] = temp2.pop('offset')
-        temp2['freq_tf'] = temp2.pop('freq')
-        temp2['period_tf'] = temp2.pop('period')
-        temp2['r2_tf'] = temp2.pop('r2')
+        postfix = '_tf'
+        temp2 = {str(key) + postfix: val for key, val in temp2.items()}
         params = {**temp1, **temp2}
+        function, limits = framework.function_return('cf', 
+                                                     occ_bestfit['threshold'], 
+                                                     True,
+                                                     params['amp_tf'], 
+                                                     params['omega_tf'],
+                                                     params['phase_tf'], 
+                                                     params['offset_tf'], 
+                                                     params['amp_sf'], 
+                                                     params['omega_sf'], 
+                                                     params['phase_sf'], 
+                                                     params['offset_sf'])
     elif occ_bestfit['best_type']=='cs':
         preds = occ_pred['cs'] 
         temp1 = occ_params['sf']
-        temp1['amp_sf'] = temp1.pop('amp')
-        temp1['omega_sf'] = temp1.pop('omega')
-        temp1['phase_sf'] = temp1.pop('phase')
-        temp1['offset_sf'] = temp1.pop('offset')
-        temp1['freq_sf'] = temp1.pop('freq')
-        temp1['period_sf'] = temp1.pop('period')
-        temp1['r2_sf'] = temp1.pop('r2')
+        postfix = '_sf'
+        temp1 = {str(key) + postfix: val for key, val in temp1.items()}
         temp2 = occ_params['ts']
-        temp2['amp_ts'] = temp2.pop('amp')
-        temp2['omega_ts'] = temp2.pop('omega')
-        temp2['phase_ts'] = temp2.pop('phase')
-        temp2['offset_ts'] = temp2.pop('offset')
-        temp2['freq_ts'] = temp2.pop('freq')
-        temp2['period_ts'] = temp2.pop('period')
-        temp2['r2_ts'] = temp2.pop('r2')
-        temp2['slope_ts'] = temp2.pop('slope')
+        postfix = '_ts'
+        temp2 = {str(key) + postfix: val for key, val in temp2.items()}
         params = {**temp1, **temp2}
-        
-    return occ_bestfit, preds, params
+        function, limits = framework.function_return('cs', 
+                                                     occ_bestfit['threshold'], 
+                                                     True,
+                                                     params['slope_ts'], 
+                                                     params['amp_ts'], 
+                                                     params['omega_ts'], 
+                                                     params['phase_ts'], 
+                                                     params['offset_ts'], 
+                                                     params['amp_sf'], 
+                                                     params['omega_sf'], 
+                                                     params['phase_sf'], 
+                                                     params['offset_sf'])
     
+    return occ_bestfit, preds, params, function, limits
 
-def host_flow(data, event, beginning='1-1-1979'):
+
+def test_occurrence(data, function, limit, test_x):
+    '''
+    Function used for testing model performance on test dataset. Requires as
+    input test dataset, function used to generate model values, decision 
+    threshold and x values for test set time-range. Can be used for categorical
+    data only.
+
+    Parameters
+    ----------
+    data : array-like
+        Test dataset prepared by preprocessor.preprocess() function.
+    function : function object
+        Function object used to generate model values in any time-range with
+        parameters preprogrammed, returned by train_occurrence function.
+    limit : array-like
+        Values array representing decision threshold at each given time step.
+        Returned by train_occurrence function.
+    test_x : array-like
+        Values array representing x time-steps for test dataset. Returned by
+        preprocessor.preprocess() function.
+
+    Returns
+    -------
+    dict
+        Dictionary containing accurracy statistics for test dataset: accuracy,
+        precision, recall, f1score.
+    '''
+    
+    y_pred = []
+    for x in test_x:
+        y_pred.append(function(x))
+    limits = []
+    for x in test_x:
+        limits.append(limit(x))
+    data['comp'] = 0
+    data['comp'].loc[data['occurrence'] >= 1] = 1
+    data['data'] = y_pred
+    data['limit'] = limits
+    data['predict'] = data.apply(framework.event_predict, axis=1)
+    data['cat'] = data.apply(framework.event_cat, axis=1)
+    
+    cont, acc, precision, recall, f1score = framework.contingency_tab(data)
+    
+    return {'accuracy' : acc, 'precision' : precision, 
+            'recall' : recall, 'f1score' : f1score}
+
+
+
+def train_flow(data):
     '''
     HOST model calling function for flow type analysis. Performs series 
     of transformations to generate five harmonic models: tf (trend), 
@@ -236,18 +301,14 @@ def host_flow(data, event, beginning='1-1-1979'):
         sf - seasonal, cf - combined, cs - combined sloped. 
     '''
 
-    # process data:
-    processed = preprocessor.data_processor(data,start_date=beginning)
-    # generate flows:
-    event_d, aggr_d = preprocessor.variable_generator(processed, event)
     # create five HOST models:
-    flow_pred, flow_params = framework.host_body(aggr_d['flow'])
+    flow_pred, flow_params = framework.host_body(data['flow'])
     # perform distribution analysis for each model:
-    dist_ts = framework.accuracy_cont(flow_pred['ts'], aggr_d['flow'])
-    dist_tf = framework.accuracy_cont(flow_pred['tf'], aggr_d['flow'])
-    dist_sf = framework.accuracy_cont(flow_pred['sf'], aggr_d['flow'])
-    dist_cf = framework.accuracy_cont(flow_pred['cf'], aggr_d['flow'])
-    dist_cs = framework.accuracy_cont(flow_pred['cs'], aggr_d['flow'])
+    dist_ts = framework.accuracy_cont(data['flow'], flow_pred['ts'])
+    dist_tf = framework.accuracy_cont(data['flow'], flow_pred['tf'])
+    dist_sf = framework.accuracy_cont(data['flow'], flow_pred['sf'])
+    dist_cf = framework.accuracy_cont(data['flow'], flow_pred['cf'])
+    dist_cs = framework.accuracy_cont(data['flow'], flow_pred['cs'])
     # find best fitted model:
     flow_bestfit = framework.selector_cont(dist_tf, dist_ts, dist_sf, dist_cf, dist_cs)
     
@@ -255,51 +316,113 @@ def host_flow(data, event, beginning='1-1-1979'):
     if flow_bestfit['best_type']=='ts':
         params = flow_params['ts']
         preds = flow_pred['ts']
+        function = framework.function_return('ts', 
+                                             0,
+                                             False,
+                                             params['slope'], 
+                                             params['amp'], 
+                                             params['omega'], 
+                                             params['phase'], 
+                                             params['offset'])
+        
     elif flow_bestfit['best_type']=='tf':
         params = flow_params['tf']
-        preds = flow_pred['tf']        
+        preds = flow_pred['tf']  
+        function = framework.function_return('tf', 
+                                             0,
+                                             False,
+                                             params['amp'], 
+                                             params['omega'], 
+                                             params['phase'], 
+                                             params['offset'])
+        
     elif flow_bestfit['best_type']=='sf':
         params = flow_params['sf']
         preds = flow_pred['sf'] 
+        function = framework.function_return('sf', 
+                                             0,
+                                             False,
+                                             params['amp'], 
+                                             params['omega'], 
+                                             params['phase'], 
+                                             params['offset'])        
+        
     # if combined model is best fitted, include component models parameters:
     elif flow_bestfit['best_type']=='cf':
         preds = flow_pred['cf'] 
         temp1 = flow_params['sf']
-        temp1['amp_sf'] = temp1.pop('amp')
-        temp1['omega_sf'] = temp1.pop('omega')
-        temp1['phase_sf'] = temp1.pop('phase')
-        temp1['offset_sf'] = temp1.pop('offset')
-        temp1['freq_sf'] = temp1.pop('freq')
-        temp1['period_sf'] = temp1.pop('period')
-        temp1['r2_sf'] = temp1.pop('r2')
+        postfix = '_sf'
+        temp1 = {str(key) + postfix: val for key, val in temp1.items()}
         temp2 = flow_params['tf']
-        temp2['amp_tf'] = temp2.pop('amp')
-        temp2['omega_tf'] = temp2.pop('omega')
-        temp2['phase_tf'] = temp2.pop('phase')
-        temp2['offset_tf'] = temp2.pop('offset')
-        temp2['freq_tf'] = temp2.pop('freq')
-        temp2['period_tf'] = temp2.pop('period')
-        temp2['r2_tf'] = temp2.pop('r2')
+        postfix = '_tf'
+        temp2 = {str(key) + postfix: val for key, val in temp2.items()}
         params = {**temp1, **temp2}
+        function = framework.function_return('cf', 
+                                             0, 
+                                             False,
+                                             params['amp_tf'], 
+                                             params['omega_tf'],
+                                             params['phase_tf'], 
+                                             params['offset_tf'], 
+                                             params['amp_sf'], 
+                                             params['omega_sf'], 
+                                             params['phase_sf'], 
+                                             params['offset_sf'])        
+        
     elif flow_bestfit['best_type']=='cs':
         preds = flow_pred['cs'] 
         temp1 = flow_params['sf']
-        temp1['amp_sf'] = temp1.pop('amp')
-        temp1['omega_sf'] = temp1.pop('omega')
-        temp1['phase_sf'] = temp1.pop('phase')
-        temp1['offset_sf'] = temp1.pop('offset')
-        temp1['freq_sf'] = temp1.pop('freq')
-        temp1['period_sf'] = temp1.pop('period')
-        temp1['r2_sf'] = temp1.pop('r2')
+        postfix = '_sf'
+        temp1 = {str(key) + postfix: val for key, val in temp1.items()}
         temp2 = flow_params['ts']
-        temp2['amp_ts'] = temp2.pop('amp')
-        temp2['omega_ts'] = temp2.pop('omega')
-        temp2['phase_ts'] = temp2.pop('phase')
-        temp2['offset_ts'] = temp2.pop('offset')
-        temp2['freq_ts'] = temp2.pop('freq')
-        temp2['period_ts'] = temp2.pop('period')
-        temp2['r2_ts'] = temp2.pop('r2')
-        temp2['slope_ts'] = temp2.pop('slope')
+        postfix = '_ts'
+        temp2 = {str(key) + postfix: val for key, val in temp2.items()}
         params = {**temp1, **temp2}
+        function = framework.function_return('cs', 
+                                             0, 
+                                             False,
+                                             params['slope_ts'], 
+                                             params['amp_ts'], 
+                                             params['omega_ts'], 
+                                             params['phase_ts'], 
+                                             params['offset_ts'], 
+                                             params['amp_sf'], 
+                                             params['omega_sf'], 
+                                             params['phase_sf'], 
+                                             params['offset_sf'])
         
-    return flow_bestfit, preds, params
+    return flow_bestfit, preds, params, function
+
+
+def test_flow(data, function, test_x):
+    '''
+    Function used for testing model performance on test dataset. Requires as
+    input test dataset, function used to generate model values, and x values 
+    for test set time-range. Can be used for continuous data only.
+
+    Parameters
+    ----------
+    data : array-like
+        Test dataset prepared by preprocessor.preprocess() function.
+    function : function object
+        Function object used to generate model values in any time-range with
+        parameters preprogrammed, returned by train_occurrence function.
+    test_x : array-like
+        Values array representing x time-steps for test dataset. Returned by
+        preprocessor.preprocess() function.
+
+    Returns
+    -------
+    dict
+        Dictionary containing accurracy statistics for test dataset: accuracy,
+        precision, recall, f1score.
+    '''
+    
+    y_pred = []
+    for x in test_x:
+        y_pred.append(function(x))
+    data['predicted']=y_pred
+    results = framework.accuracy_cont(data['flow'], data['predicted'])
+    
+    return results
+    

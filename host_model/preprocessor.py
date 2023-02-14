@@ -18,7 +18,7 @@ import pandas as pd
 
 
 # functions block:
-def data_processor(data, start_date='1-1-1979', interval = 'D'):
+def data_processor(data, start_date, interval):
     '''
     This function prepares data accordingly for further processing. Required 
     inputs are data in series like format and optionally start date for 
@@ -32,10 +32,10 @@ def data_processor(data, start_date='1-1-1979', interval = 'D'):
         The Iterable sequence of numbers (int/float) to be used, f.e.: list,
         pd.Series, np.array or pd.DataFrame slice.
     start_date : date, optional
-        Date for timeseries to strart from. The default is '1-1-1979'.
+        Date for timeseries to strart from.
     interval : string: 'D', 'M' or 'Y', optional
         The interval of data. Use 'D' for daily, 'M' for monthly and
-        'Y' for annual (year). Default is 'D'.
+        'Y' for annual (year).
 
     Returns
     -------
@@ -56,7 +56,7 @@ def data_processor(data, start_date='1-1-1979', interval = 'D'):
     return indexed_data
 
 
-def variable_generator(data, event_type, interval='M', threshold_method='leave'):
+def variable_generator(data, event_type, interval, threshold_method):
     '''
     Function used to generate a representation of the event parameter in form
     of variable array-like object and data aggregated in research scale 
@@ -76,12 +76,12 @@ def variable_generator(data, event_type, interval='M', threshold_method='leave')
             "fd" or "flood"   : for flood analysis.
     interval : string: 'M' or 'Y', optional
         The interval of data for aggregation. Use 'M' for monthly and
-        'Y' for annual (year) aggregation. Default is 'M'.
+        'Y' for annual (year) aggregation.
     threshold_method : string, optional
         Used to controll objective method feedback on high discretized data, 
         that results in less than five unique values in the series. 
         Available options are:
-            "leave"  : breaks the computation, no threshold is returned, default;
+            "leave"  : breaks the computation, no threshold is returned;
             "min"    : minimal value of data is used as threshold;
             "median" : data median is used as threshold.
 
@@ -143,5 +143,119 @@ def variable_generator(data, event_type, interval='M', threshold_method='leave')
                           '"lf" or "lowflow" for low flow / streamflow drought studies'+'\n'+
                           '"fd" or "flood" for flood studies')
 
-    
     return event_data, aggreg_data
+
+
+def data_split(data, train_size):
+    '''
+    Function used for train-test split of dataset.
+
+    Parameters
+    ----------
+    data : array-like
+        The Iterable sequence of numbers (int/float) to be used, f.e.: list,
+        pd.Series, np.array or pd.DataFrame slice.
+    train_size : float
+        Size of the training sample in nounit format. Value provided should be 
+        no higher than 1 (equalt to 100%) and higher than 0. For example 0.8 
+        reserves 80% of data for training and 20% for testing purposes.
+
+    Returns
+    -------
+    train : pandas DataFrame
+        Time indexed pandas DataFrame object with event occurrence identified
+        and data aggregated in provided interval, for training purposes of 
+        train_size (default 80%) of original dataset.
+    test : pandas DataFrame
+        Time indexed pandas DataFrame object with event occurrence identified
+        and data aggregated in provided interval, for testing purposes of
+        1 - train_size (default 20%) of original dataset.
+    x : range object
+        Range object for x order generation of values saved for test purposes.
+        Reflects the positions in time series starting from position identified
+        as train-test split to the end of original time series. Provided to ensure
+        time-series continuity during testing phase.
+    '''
+    
+    train_set = data.iloc[:int(len(data)*train_size)]
+    test_set = data.iloc[int(len(data)*train_size):]
+    test_x = range(int(len(data)*train_size),len(data))
+    
+    return train_set, test_set, test_x
+
+
+def preprocess(data, event, beginning='1-1-1979', step = 'D', interval='M', 
+               threshold_method='median', train_size=0.8, include_raw=False):
+    '''
+    Initialization function to prepares data for further processing. 
+    Includes train and test set split.
+
+    Parameters
+    ----------
+    data : array-like
+        The Iterable sequence of numbers (int/float) to be used, f.e.: list,
+        pd.Series, np.array or pd.DataFrame slice.
+    event : string
+        String representing type of studied event. Available options are:
+            "lf" or "lowflow" : for streamflow drought/low flow analysis;
+            "fd" or "flood"   : for flood analysis.    
+    beginning : date, optional
+        Date for timeseries to start from. The default is '1-1-1979'.
+    step : string: 'D', 'M' or 'Y', optional
+        The interval of data. Use 'D' for daily, 'M' for monthly and
+        'Y' for annual (year). Default is 'D'.
+    interval : string: 'M' or 'Y', optional
+        The interval of data for aggregation. Use 'M' for monthly and
+        'Y' for annual (year) aggregation. Default is 'M'.
+    threshold_method : string, optional
+        Used to controll objective method feedback on high discretized data, 
+        that results in less than five unique values in the series. 
+        Available options are:
+            "leave"  : breaks the computation, no threshold is returned;
+            "min"    : minimal value of data is used as threshold;
+            "median" : data median is used as threshold, default.
+    train_size : float, optional
+        Size of the training sample in nounit format. Value provided should be 
+        no higher than 1 (equalt to 100%) and higher than 0. The default is 0.8,
+        which reserves 80% of data for training and 20% for testing purposes.
+
+    Returns
+    -------
+    train : pandas DataFrame
+        Time indexed pandas DataFrame object with event occurrence identified
+        and data aggregated in provided interval, for training purposes of 
+        train_size (default 80%) of original dataset.
+    test : pandas DataFrame
+        Time indexed pandas DataFrame object with event occurrence identified
+        and data aggregated in provided interval, for testing purposes of
+        1 - train_size (default 20%) of original dataset.
+    x : range object
+        Range object for x order generation of values saved for test purposes.
+        Reflects the positions in time series starting from position identified
+        as train-test split to the end of original time series. Provided to ensure
+        time-series continuity during testing phase.
+    event_d : pandas DataFrame, optionally
+        Time indexed pandas DataFrame object with event oocurrence identified
+        before aggregation. Returned if include_raw is set to True.
+    '''
+    
+    # process data and adjust formats:
+    processed = data_processor(data, 
+                               start_date=beginning, 
+                               interval=step)
+    
+    # identify phenomena and generate parameters:
+    event_d, aggr_d = variable_generator(data=processed, 
+                                         event_type=event, 
+                                         interval=interval, 
+                                         threshold_method=threshold_method)
+    
+    # slip the data for training and testing sets:
+    train, test, x = data_split(data=aggr_d,
+                                train_size=train_size)
+    
+    if include_raw==True:
+        return train, test, x, event_d
+    
+    return train, test, x
+     

@@ -486,15 +486,27 @@ def contingency(data, index, comparable, sloped=0):
     # mark category for contingency table:
     table['cat'] = table.apply(event_cat, axis=1)
     
+    cont, acc, precision, recall, f1score = contingency_tab(table)
+    
+    return cont, acc, precision, recall, f1score
+
+
+def contingency_tab(data):
+    '''
+    Contingency table calculator.
+    Inner function for use within contingency functuion and test dataset 
+    functions. Returns contingency statistics.
+    '''
+    
     # create contingency table:
-    count00 = len(table['cat'].loc[table['cat']==0])
-    count11 = len(table['cat'].loc[table['cat']==1])
-    count01 = len(table['cat'].loc[table['cat']==2])
-    count10 = len(table['cat'].loc[table['cat']==3])
+    count00 = len(data['cat'].loc[data['cat']==0])
+    count11 = len(data['cat'].loc[data['cat']==1])
+    count01 = len(data['cat'].loc[data['cat']==2])
+    count10 = len(data['cat'].loc[data['cat']==3])
     cont_in = [[count11,count10],[count01,count00]]
     
     # calculate accuracy:
-    acc_in = (count11+count00)/len(table)
+    acc_in = (count11+count00)/len(data)
     # and accuracy statistics, try if no null division:
     try:
         precision_in = count11/(count11+count01)
@@ -509,7 +521,7 @@ def contingency(data, index, comparable, sloped=0):
     except:
         f1score_in = 0
     
-    return cont_in, acc_in, precision_in, recall_in, f1score_in
+    return cont_in, acc_in, precision_in, recall_in, f1score_in    
 
 
 def topology(input_data, comparable, slope=0):
@@ -599,6 +611,7 @@ def selector_cat(tf, ts, sf, cf, cs):
     names = ['tf', 'ts', 'sf', 'cf', 'cs']
     # generate output of accuracy statistics for best fitted model:
     res = {'best_type':names[best_index],  
+           'threshold':parameters[best_index]['threshold'],
            'accuracy' : parameters[best_index]['accuracy'], 
            'precision' : parameters[best_index]['precision'], 
            'recall' : parameters[best_index]['recall'], 
@@ -634,13 +647,13 @@ def selector_cont(tf, ts, sf, cf, cs):
     ----------
     tf : model-data
         Trend fitted model data, output from host_body.
-    ts : TYPE
+    ts : model-data
         Trend sloped model data, output from host_body.
-    sf : TYPE
+    sf : model-data
         Seasonality fitted model data, output from host_body.
-    cf : TYPE
+    cf : model-data
         Combined fitted model data, output from host_body.
-    cs : TYPE
+    cs : model-data
         Combined sloped model data, output from host_body.
 
     Returns
@@ -663,3 +676,101 @@ def selector_cont(tf, ts, sf, cf, cs):
            'MWU_stat' : parameters[best_index]['MWU_stat']}
     
     return res
+
+
+def function_return(model, threshold, include_topo, *args):
+    '''Function used to return function objects according to provided parameters
+    and model type, allows for further generation of function values to use in 
+    forcasting and prediction.
+    
+    Parameters
+    ----------
+    model : string
+        String representing adjusted model. Accepted are: 'tf' (for trend), 
+        'ts' (for trend sloped), 'sf' (for seasonal), 'cf' (for combined), 
+        'cs' (for combined sloped).
+    threshold : int/float
+        Value representing found decision threshold for categorical data.
+    include_topo : bool
+        Boolean output modificator. If categorical data is used and decision
+        threshold is present, this should be set to True to return threshold
+        limit for further use with testing set. If continuous data (flow) is
+        used, this should be set to False, to exclude threshold analysis.
+    *args : int/float
+        The model parameters provided for unpacking to returned function. The 
+        general oder is as follows: slope (if applicable), amplitude, omega,
+        phase, offset. If combined model is used provide first set of trend
+        model parameters and then seasonal model parameters in same order. 
+        See details below for further explanation:
+        for ts model: slope, amp, omega, phase, offset
+        for tf or sf model: amp, omega, phase, offset
+        for cs model:   slope, amp (of trend), omega (of trend), 
+                        phase (of trend), offset (of trend), amp (of season), 
+                        omega (of season), phase (of season), offset (of season)
+        for cf model:   amp (of trend), omega (of trend), phase (of trend), 
+                        offset (of trend), amp (of season), omega (of season), 
+                        phase (of season), offset (of season)
+
+    Returns
+    -------
+    funcfit : function
+        Function object built on provided model type and parameters. Function
+        will require providing time variable when called. Remaining parameters
+        are included based on the information provided in *args.
+    limit : int/float
+        Decision threshold initial value. Used only with include_topo=True.
+
+    Exmple
+    -------
+    # calling trend sloped model (ts) with slope of 0.1, phase of 2 and 
+    # remaining parameters as 1:   
+    test = function_return('ts', 0.1, 1, 1, 2, 1)
+    # generating function values in time step from 1 to 100 and creating list:
+    res = []
+    for i in range(1,100):
+        res.append(test(i))
+    # plotting the results (requires import matplotlib.pyplot as plt)
+    plt.plot(res)
+    plt.show()    
+        
+    '''     
+    
+    if model == 'ts':
+        'parameters order: slope, amp, omega, phase, offset'
+        st, At, wt, pt, ct = args
+        def funcfit(t): return st * t + At * np.sin(wt*(t-pt))  + ct
+        def limit(t): return st * t + threshold
+        if include_topo==False:
+            return funcfit
+        else:
+            return funcfit, limit
+        
+    elif model == 'tf' or model == 'sf':
+        'parameters order: amp, omega, phase, offset'
+        A, w, p, c = args
+        def funcfit(t): return A * np.sin(w*(t-p)) + c
+        def limit(t): return threshold
+        if include_topo==False:
+            return funcfit
+        else:
+            return funcfit, limit
+
+    elif model == 'cs':
+        'parameters order: slope, amp_t, omega_t, phase_t, offset_t, amp_s, omega_s, phase_s, offset_s'
+        st, At, wt, pt, ct, As, ws, ps, cs = args
+        def funcfit(t): return st * t + At * np.sin(wt*(t-pt)) + ct + As * np.sin(ws*(t-ps)) + cs
+        def limit(t): return st * t + threshold
+        if include_topo==False:
+            return funcfit
+        else:
+            return funcfit, limit
+        
+    elif model == 'cf':
+        'parameters order: amp_t, omega_t, phase_t, offset_t, amp_s, omega_s, phase_s, offset_s'
+        At, wt, pt, ct, As, ws, ps, cs = args
+        def funcfit(t): return At * np.sin(wt*(t-pt)) + ct + As * np.sin(ws*(t-ps)) + cs
+        def limit(t): return threshold
+        if include_topo==False:
+            return funcfit
+        else:
+            return funcfit, limit
