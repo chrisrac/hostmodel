@@ -3,7 +3,7 @@
 > ***This software is currently under development!*** Important notes, current progress and known issues can be found below.
 
 ### Description
-*hostmodel* is a Python package for temporal hydrological extremes pattern identification and analysis based on harmonic oscillator theorem. 
+*hostmodel* is a Python package for hydrological extremes short- and long-term pattern identification and analysis based on harmonic oscillator theorem. 
 This package contains tools for full HOST model calculation according to following sheme:
 > Published workflow scheme goes here.
 Documentation will be published according to work timeframe.
@@ -40,12 +40,13 @@ The *hostmodel* package requires the following:
 
 
 ### Project development timeframe:
-- [x] pre-alpha code `published: 12/21/2022`
-- [x] pre-alpha in-module documentation `published: 12/21/2022`
-- [x] pre-alpha release (v.0.0.1) `published: 12/21/2022`
-- [x] data preprocessor `published: 12/21/2022`
-- [x] built in function returner to recreate and forecast points `coming in v.0.0.3`
-- [x] more output control in host modules `coming in v.0.0.3`
+- [x] pre-alpha code `published v0.0.1: 12/21/2022`
+- [x] pre-alpha in-module documentation `published v0.0.1: 12/21/2022`
+- [x] pre-alpha release (v.0.0.1) `published v0.0.1: 12/21/2022`
+- [x] data preprocessor `published v0.0.1: 12/21/2022`
+- [x] built in function returner to recreate and forecast points `published v0.0.3: 2/14/2023`
+- [x] more output control in host modules `published v0.0.3: 2/14/2023`
+- [x] built in training/testing split and verification methods `published v0.0.3: 2/14/2023`
 - [ ] testing and debugging
 - [ ] postprocessor for tables and graphs
 - [ ] exceptions and errors handling
@@ -60,9 +61,9 @@ The *hostmodel* package requires the following:
 - [ ] full release v.1
 
 ### Known issues:
-- [x] inconsistent naming `coming in v.0.0.3`
-- [x] broken execution link at topological analysis stage `fixed: 12/21/2022, included in: v.0.0.1`
-- [x] returns inconsistencies `fixed: 12/21/2022, included in: v.0.0.1`
+- [x] inconsistent naming `fixed v0.0.3: 2/14/2023`
+- [x] broken execution link at topological analysis stage `fixed v0.0.1: 12/21/2022`
+- [x] returns inconsistencies `fixed v0.0.1: 12/21/2022`
 
 ### Additional content:
 - [ ] add decision for selector_cont if RMSE are same according to decision order: chi2, MWU
