@@ -47,6 +47,7 @@ The *hostmodel* package requires the following:
 - [x] built in function returner to recreate and forecast points `published v0.0.3: 2/14/2023`
 - [x] more output control in host modules `published v0.0.3: 2/14/2023`
 - [x] built in training/testing split and verification methods `published v0.0.3: 2/14/2023`
+- [x] change in decision statistics for flow assesment to KGE/NSE `ready for publish in v0.0.4`
 - [ ] testing and debugging
 - [ ] postprocessor for tables and graphs
 - [ ] exceptions and errors handling
