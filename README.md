@@ -38,16 +38,20 @@ The *hostmodel* package requires the following:
 
 **Errors and exceptions might occur at this stage.**
 
+### Current task:
+`code optimization and vectorization`
+to be implemented in: v0.0.4
 
 ### Project development timeframe:
-- [x] pre-alpha code `published v0.0.1: 12/21/2022`
-- [x] pre-alpha in-module documentation `published v0.0.1: 12/21/2022`
-- [x] pre-alpha release (v.0.0.1) `published v0.0.1: 12/21/2022`
-- [x] data preprocessor `published v0.0.1: 12/21/2022`
-- [x] built in function returner to recreate and forecast points `published v0.0.3: 2/14/2023`
-- [x] more output control in host modules `published v0.0.3: 2/14/2023`
-- [x] built in training/testing split and verification methods `published v0.0.3: 2/14/2023`
-- [x] change in decision statistics for flow assesment to KGE/NSE `ready for publish in v0.0.4`
+- [x] `v0.0.1: 12/21/2022` pre-alpha code
+- [x] `v0.0.1: 12/21/2022` pre-alpha in-module documentation
+- [x] `v0.0.1: 12/21/2022` pre-alpha release (v.0.0.1)
+- [x] `v0.0.1: 12/21/2022` data preprocessor
+- [x] `v0.0.3: 2/14/2023` built in function returner to recreate and forecast points 
+- [x] `v0.0.3: 2/14/2023` more output control in host modules
+- [x] `v0.0.3: 2/14/2023` built in training/testing split and verification methods`
+- [ ] `ready for publish in v0.0.4` change in decision statistics for flow assesment to KGE/NSE 
+- [ ] code optimization and vectorization
 - [ ] testing and debugging
 - [ ] postprocessor for tables and graphs
 - [ ] exceptions and errors handling
