@@ -71,7 +71,7 @@ then use `.fit()` method on these objects to compute models or functions.
 
 
 ### Current task:
-`magnitude solver research`
+`magnitude solver, variate period handling, new models implementations, workflow alternation to adjust component r2`
 
 
 
@@ -89,8 +89,11 @@ then use `.fit()` method on these objects to compute models or functions.
 - [x] `v0.1: 3/27/2023` exceptions and errors handling
 - [x] `v0.1: 3/27/2023` beta documentation
 - [x] `v0.1: 3/27/2023` beta release
-- [ ] magnitude solver (research planned)
-- [ ] variate period handling (research planned)
+- [x] `v0.1.1: 3/31/2023` bugfix in sloped model lambda
+- [ ] magnitude solver (current research)
+- [ ] variate period handling (current research)
+- [ ] new models implementations (current research)
+- [ ] testing on workflow alternation to adjust component r2 (current research)
 - [ ] testing and debugging
 - [ ] full documentation
 - [ ] full release v.1
