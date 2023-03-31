@@ -181,7 +181,7 @@ def fit_simple(x, y, repeats = 10000):
     guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
     
     # define simple harmonic function
-    def sinfunc(x, A, w, p, c):  return A * np.sin(w*(x-p)) + c
+    def sinfunc(x, A, w, p, c):  return A * np.sin(w*x-p) + c
     # fit function curve
     try:
         popt, pcov = scipy.optimize.curve_fit(sinfunc, x, y, p0=guess, maxfev = repeats)
@@ -205,7 +205,7 @@ def fit_simple(x, y, repeats = 10000):
     r_squared = 1 - (ss_res / ss_tot)
     
     # return control to generate function and/or predictions
-    function = lambda x: c + A * np.sin(w*(x-p))
+    function = lambda x: c + A * np.sin(w*x-p)
     return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f,
             "period": 1./f, "r2": r_squared, "y_pred": y_pred, "function": function}
     
@@ -255,7 +255,7 @@ def fit_sloped(x, y, repeats = 10000):
     guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset, guess_slope])
 
     # define sloped harmonic function
-    def sinfunc(x, A, w, p, c, s):  return c + s * x + A * np.sin(w*(x-p))
+    def sinfunc(x, A, w, p, c, s):  return s * x + A * np.sin(w*x-p) + c
     try:
         popt, pcov = scipy.optimize.curve_fit(sinfunc, x, y, p0=guess, maxfev = repeats)
     except:
@@ -278,7 +278,7 @@ def fit_sloped(x, y, repeats = 10000):
     r_squared = 1 - (ss_res / ss_tot)
 
     # return control to generate function and/or predictions
-    function = lambda x: c + A * np.sin(w*(x-p))
+    function = lambda x: s * x + A * np.sin(w*x-p) + c
     return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "slope": s,
             "period": 1./f, "r2": r_squared, "y_pred": y_pred, "function": function}
     
