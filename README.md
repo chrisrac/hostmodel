@@ -12,7 +12,7 @@ This package contains tools for full HOST model calculation according to followi
 
 ### How to cite. 
 If you use this package in a scientific publication, please include the reference below:
-> citation to be included on publication
+> Raczyński K., Dyer J., 2023, Harmonic oscillator seasonal trend (HOST) model for hydrological drought pattern identification and analysis, Journal of Hydrology, 620, B, 129514, https://doi.org/10.1016/j.jhydrol.2023.129514
 
 
 
