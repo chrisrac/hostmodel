@@ -71,7 +71,7 @@ then use `.fit()` method on these objects to compute models or functions.
 
 
 ### Current task:
-`magnitude solver, variate period handling, new models implementations, workflow alternation to adjust component r2`
+`preparing for full v1.0 release`
 
 
 
@@ -90,17 +90,17 @@ then use `.fit()` method on these objects to compute models or functions.
 - [x] `v0.1: 3/27/2023` beta documentation
 - [x] `v0.1: 3/27/2023` beta release
 - [x] `v0.1.1: 3/31/2023` bugfix in sloped model lambda
-- [ ] magnitude solver (current research)
-- [ ] variate period handling (current research)
-- [ ] new models implementations (current research)
-- [ ] testing on workflow alternation to adjust component r2 (current research)
-- [ ] testing and debugging
-- [ ] full documentation
-- [ ] full release v.1
+- [x] `upcomming update in v1.0` magnitude solver (current research)
+- [x] `upcomming update in v1.0` variate period handling (current research)
+- [x] `upcomming update in v1.0` new models implementations (current research)
+- [x] `upcomming update in v1.0` testing on workflow alternation to adjust component r2 (current research)
+- [x] `upcomming update in v1.0` testing and debugging
+- [ ] `upcomming update in v1.0` full documentation
+- [ ] `upcomming update in v1.0` full release v.1
 
 
 
 ### Known limitations:
-- [ ] lack of magnitude solver (in current release, the occurrence is considered as boolean classification, therefore if data is aggregated in high resolution, like monthly or annual scales, single occurrence = multiple occurrence. This approach might lower the model precision. Magnitudes solver will be included in the next version of the software). 
-- [ ] unable to predict inc/dec magnitudes (currently only sloped models account for increasing or decreasing changes, however, only in one direction. This might lower the accurracy/recall statistics in some cases. Decreasing or increasing temporal magnitudes will be included in the future versions of the software).
-- [ ] no variate period handling (changing periods within function peaks affect the repeatability in varying environment conditions. This is especially visible due to human impact on data, and might lower precision and recall of the model. Solution will be included in the future versions of the software).
+- [x] `upcomming update in v1.0` lack of magnitude solver (in current release, the occurrence is considered as boolean classification, therefore if data is aggregated in high resolution, like monthly or annual scales, single occurrence = multiple occurrence. This approach might lower the model precision. Magnitudes solver will be included in the next version of the software). 
+- [x] `upcomming update in v1.0` unable to predict inc/dec magnitudes (currently only sloped models account for increasing or decreasing changes, however, only in one direction. This might lower the accurracy/recall statistics in some cases. Decreasing or increasing temporal magnitudes will be included in the future versions of the software).
+- [x] `upcomming update in v1.0` no variate period handling (changing periods within function peaks affect the repeatability in varying environment conditions. This is especially visible due to human impact on data, and might lower precision and recall of the model. Solution will be included in the future versions of the software).
