@@ -71,9 +71,7 @@ then use `.fit()` method on these objects to compute models or functions.
 
 
 ### Current task:
-`preparing for full v1.0 release`
-
-
+`debugging and preparing for full v1.0 release`
 
 ### Project development timeframe:
 - [x] `v0.0.1: 12/21/2022` pre-alpha code
@@ -95,7 +93,7 @@ then use `.fit()` method on these objects to compute models or functions.
 - [x] `upcomming update in v1.0` new models implementations (current research)
 - [x] `upcomming update in v1.0` testing on workflow alternation to adjust component r2 (current research)
 - [x] `upcomming update in v1.0` testing and debugging
-- [ ] `upcomming update in v1.0` full documentation
+- [x] `upcomming update in v1.0` full documentation
 - [ ] `upcomming update in v1.0` full release v.1
 
 
