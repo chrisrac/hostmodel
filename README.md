@@ -71,7 +71,7 @@ then use `.fit()` method on these objects to compute models or functions.
 
 
 ### Current task:
-`debugging and preparing for full v1.0 release`
+`workflow changes to incorporate iteration warnings`
 
 ### Project development timeframe:
 - [x] `v0.0.1: 12/21/2022` pre-alpha code
