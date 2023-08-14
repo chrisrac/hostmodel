@@ -1,34 +1,40 @@
-## Harmonic Oscillator Seasonal Trend (HOST) Model Framework for temporal hydrological extremes pattern identification and analysis
-
-> ***This software is currently under development!*** Important notes, current progress and known issues can be found below.
-
+## Harmonic Oscillator Seasonal Trend (HOST) Model for analyzing the reoccurring nature of extreme events
+<br/>
 
 ### Description
-*hostmodel* is a Python package for hydrological extremes short- and long-term pattern identification and analysis based on harmonic oscillator theorem. 
+The Harmonic Oscillator Seasonal-Trend *hostmodel* is a Python package that allows for automated analysis and pattern recognition in time-series data with varying time domains. The software performs the decomposition of data into short- and long-term components and uses a range of modified wave functions to model both behaviors. Waveform synthesis is performed to compose the combined model, incorporating both components. The model allows for the extraction of n- harmonics from the data, or signal (representing any time-series data) analysis, as well as parametric assessment, that includes: (1) occurrence analysis (as binary classification) with related decision thresholds determined during topological analysis; (2) magnitude; and (3) values assessment. 
 This package contains tools for full HOST model calculation according to following sheme:
-![Alt text](https://lh3.googleusercontent.com/pw/AMWts8CwwTiOw7kZUlNRi85wyTHh1FnQnp1u2wtrOudwD_Zp10-hKX3T0RMWIxIykp8236OPbi8L7baR0WZNoF50jSnbLWJ5Tc6zAE4rFr5miyQxnv62GIYAb2LUYUlJIjhY7ZOiayC05R0m5aFlmMj60rg=w720-h365-no "HOST model framework")
+![Alt text](./user_guides/host.png)
 
-
+This software can be used for a wide range of evenets analysis, examples include: flood occurrence, mean temperature distribution, hydrologic drought magnitude, volcano activity, occurrence of snow cover, migration scale, precipitation, seismic activity, reservoir supplementation under operational conditions and many more, on daily, monthly or annual scales. Please refer to publications listed below for more details.
+<br/>
+<br/>
 
 ### How to cite. 
-If you use this package in a scientific publication, please include the reference below:
+If you use this package, please include the reference below [temporary reference]:
 > Raczyński K., Dyer J., 2023, Harmonic oscillator seasonal trend (HOST) model for hydrological drought pattern identification and analysis, Journal of Hydrology, 620, B, 129514, https://doi.org/10.1016/j.jhydrol.2023.129514
+<br/>
 
-
+You can check below publications for details on HOST application: 
+- Raczyński K., Dyer J., 202X, Harmonic Oscillator Seasonal-Trend Model For Analyzing the Reoccurring Nature of Extreme Events, (publication process)
+- Raczyński K., Dyer J., 202X, Utilizing Waveform Synthesis in Harmonic Oscillator Seasonal-Trend Model For Short- and Long-term Streamflow Extremes Modelling And Forecasting, (publication process)
+- Raczyński K., Dyer J., 2023, Harmonic oscillator seasonal trend (HOST) model for hydrological drought pattern identification and analysis, Journal of Hydrology, 620, B, 129514, https://doi.org/10.1016/j.jhydrol.2023.129514
+<br/>
+<br/>
 
 ### Website:
 Official repository website address:
 [https://github.com/chrisrac/hostmodel/](https://github.com/chrisrac/hostmodel/)
-
-
+<br/>
+<br/>
 
 ### Installation
 Download the code from releases, unzip it and put it into you working directory for Python. 
 Then use 'import host' within your code to use the framework. 
-The pip installation for python, anaconda and other distributions will be released in the future, after adressing current limitations (see below).
+The pip installation for python, anaconda and other distributions will be released in the future.
 Make sure you are using the latest release.
-
-
+<br/>
+<br/>
 
 ### Dependencies
 The *hostmodel* package requires the following:
@@ -37,8 +43,8 @@ The *hostmodel* package requires the following:
 - scipy
 - statsmodels
 - objective_thresholds
-
-
+<br/>
+<br/>
 
 ### Usage
 For detailed explanation of workflow and how to access results, please refer to [User Guides](https://github.com/chrisrac/hostmodel/tree/main/user_guides).
@@ -62,43 +68,6 @@ harmonic_model = host.Harmonics(flow, 'lf', 6, 'occurrence', '1-2-1979', 'D', 'M
 harmonic_model = host.Harmonics(flow, 'lf', 5, 'flow', '1-2-1979', 'D', 'M')
 ```
 then use `.fit()` method on these objects to compute models or functions.
+On information about additional parameters please refer to documentation and user guides.
 
-
-> Documentation will be published according to work timeframe.
-
-**Errors and exceptions might occur at this stage.**
-
-
-
-### Current task:
-`workflow changes to incorporate iteration warnings`
-
-### Project development timeframe:
-- [x] `v0.0.1: 12/21/2022` pre-alpha code
-- [x] `v0.0.1: 12/21/2022` pre-alpha in-module documentation
-- [x] `v0.0.1: 12/21/2022` pre-alpha release (v.0.0.1)
-- [x] `v0.0.1: 12/21/2022` data preprocessor
-- [x] `v0.0.3: 2/14/2023` built in function returner to recreate and forecast points 
-- [x] `v0.0.3: 2/14/2023` more output control in host modules
-- [x] `v0.0.3: 2/14/2023` built in training/testing split and verification methods`
-- [x] `v0.1: 3/27/2023` change in decision statistics for flow assesment to KGE/NSE 
-- [x] `v0.1: 3/27/2023` code optimization and vectorization
-- [x] `v0.1: 3/27/2023` testing and debugging
-- [x] `v0.1: 3/27/2023` exceptions and errors handling
-- [x] `v0.1: 3/27/2023` beta documentation
-- [x] `v0.1: 3/27/2023` beta release
-- [x] `v0.1.1: 3/31/2023` bugfix in sloped model lambda
-- [x] `upcomming update in v1.0` magnitude solver (current research)
-- [x] `upcomming update in v1.0` variate period handling (current research)
-- [x] `upcomming update in v1.0` new models implementations (current research)
-- [x] `upcomming update in v1.0` testing on workflow alternation to adjust component r2 (current research)
-- [x] `upcomming update in v1.0` testing and debugging
-- [x] `upcomming update in v1.0` full documentation
-- [ ] `upcomming update in v1.0` full release v.1
-
-
-
-### Known limitations:
-- [x] `upcomming update in v1.0` lack of magnitude solver (in current release, the occurrence is considered as boolean classification, therefore if data is aggregated in high resolution, like monthly or annual scales, single occurrence = multiple occurrence. This approach might lower the model precision. Magnitudes solver will be included in the next version of the software). 
-- [x] `upcomming update in v1.0` unable to predict inc/dec magnitudes (currently only sloped models account for increasing or decreasing changes, however, only in one direction. This might lower the accurracy/recall statistics in some cases. Decreasing or increasing temporal magnitudes will be included in the future versions of the software).
-- [x] `upcomming update in v1.0` no variate period handling (changing periods within function peaks affect the repeatability in varying environment conditions. This is especially visible due to human impact on data, and might lower precision and recall of the model. Solution will be included in the future versions of the software).
+If you encounter unresolved errors please use [Issues](https://github.com/chrisrac/hostmodel/issues) tab for reporting.
