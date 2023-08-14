@@ -200,5 +200,4 @@ harmonic_model = host.Harmonics(flow, 'low', 3, 'magnitude', '1-2-1979', 'D', 'M
 import numpy as np
 harmonic_model = host.Harmonics(flow, 'low', 5, 'signal', '1-1-1979', 'D', 'M', 
                                 'median', threshold_overwrite=np.quantile(flow, 0.1),
-                                signal_method='sum', area=1568):
-
+                                signal_method='sum', area=1568)
