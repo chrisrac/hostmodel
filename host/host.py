@@ -9,27 +9,67 @@ https://github.com/chrisrac/hostmodel
 Future functionalities will be added in later development.
 Please reffer to documentation for information on current stage of development.
 
+v. 1.0
+
 @authors: Krzysztof Raczynski
 """
 # imports
 import numpy as np
+import warnings
 import host_functions
+import host_models
+from collections.abc import Iterable
 
 
 # primary Classes
+class IterationWarning(UserWarning):
+    pass
+
+
 class Harmonics:
     ''' Class defining raw harmonic functions based on provided data '''
     
     
     __slots__ = ['data','event','no_functions', 'htype', 'beginning','step',
-                 'interval', 'threshold_method','results','value']
+                 'interval', 'threshold_method', 'threshold_overwrite',
+                 'signal_method','area','results','value','raw_data']
     
     
-    def __init__(self, data, event, no_functions=5, htype='flow', 
+    def __init__(self, data, event, no_functions=5, htype='signal', 
                  beginning='1-1-1979', step='D', interval='M', 
-                 threshold_method='median'):
+                 threshold_method='median', threshold_overwrite=None,
+                 signal_method='mean', area=0):
         ''' Harmonics class constructor '''
-        
+        # data integrity check and handle warnings
+        if not isinstance(data, Iterable):
+            raise TypeError('The Iterable sequence must be used as data input.')
+        if isinstance(data, (str, bytes)):
+            raise TypeError('Sequence of numbers int or float must be used.')        
+        if event not in ['value','low','high']:
+            raise SyntaxError('Specified event does not exist, availabe options are: '+'\n'+
+                              '"value", "low", or "high".')  
+        if not isinstance(no_functions, int):
+            raise TypeError('Int value must be used as no_functions.')            
+        if htype not in ['signal','occurrence','magnitude']:
+            raise SyntaxError('Specified htype does not exist, availabe options are: '+'\n'+
+                      '"signal", "occurrence", or "magnitude".')        
+        if not isinstance(beginning, str):
+            raise TypeError('Date in beginning attribute have to be string, eg. "1-1-1979"')
+        if step not in ['D','M','Y']:
+            raise SyntaxError('Custom data steps are not handled, use: '+'\n'+
+                      '"D" for daily, "M" for monthly, "Y" for annual.') 
+        if interval not in ['D','M','Y']:
+            raise SyntaxError('Custom output interval is not handled, use: '+'\n'+
+                      '"D" for daily, "M" for monthly, "Y" for annual.')                
+        if threshold_method not in ['leave' , 'max', 'median']:
+            raise SyntaxError('Specified threshold_method does not exist, availabe options are: '+'\n'+
+                              '"leave", "max", or "median".')   
+        if signal_method not in ['mean' , 'sum', 'min', 'max']:
+            raise SyntaxError('Specified signal_method does not exist, availabe options are: '+'\n'+
+                              '"mean" , "sum", "min", "max".')   
+        if not isinstance(area, (float, int)):
+            raise TypeError('Area must be a number.')        
+        # constructor calls
         self.data = data
         self.event = event
         self.no_functions = no_functions
@@ -38,10 +78,14 @@ class Harmonics:
         self.step = step
         self.interval = interval
         self.threshold_method = threshold_method
+        self.threshold_overwrite = threshold_overwrite
+        self.signal_method = signal_method
+        self.area = area
         # results slots filled after calling .fit()
         self.results = None
         self.value = None
-      
+        self.raw_data = None
+        
         
     def __repr__(self):
         ''' Harmonics class representation '''
@@ -59,7 +103,7 @@ class Harmonics:
     
     
  
-    def fit(self, include_predictions=False):
+    def fit(self, include_predictions=False, binary_occurrence=True):
         ''' Fitting method for finding the harmonic function.
         
         Parameters
@@ -88,7 +132,12 @@ class Harmonics:
                                                self.beginning, 
                                                self.step, 
                                                self.interval, 
-                                               self.threshold_method)
+                                               self.threshold_method,
+                                               self.threshold_overwrite,
+                                               self.signal_method,
+                                               self.area,
+                                               binary_occurrence)
+        self.raw_data = aggregated
         # generating results for default case without predictions
         if include_predictions==False:
             self.results = host_functions.harmonic(aggregated, 
@@ -127,16 +176,44 @@ class Host:
     ''' Class defining HOST model '''
     
     
-    __slots__ = ['data','event','htype', 'beginning','step','interval', 
-                 'train_size', 'threshold_method','parameters','train', 
-                 'test', 'model', 'ts', 'tf', 'sf', 'cf', 'cs', 'trend',
-                 'seasonality']
+    #__slots__ = ['data','event','htype', 'beginning','step','interval', 
+    #             'train_size', 'threshold_method']
     
-    
-    def __init__(self, data, event, htype='flow', beginning='1-1-1979', 
-                 step='D', interval='M', train_size=0.8, threshold_method='median'):
+
+    def __init__(self, data, event, htype='signal', beginning='1-1-1979', 
+                 step='D', interval='M', train_size=0.8, threshold_method='median', 
+                 threshold_overwrite=None, signal_method='mean', area=0):
         ''' Host class constructor '''
-        
+        # data integrity check and handle warnings
+        if not isinstance(data, Iterable):
+            raise TypeError('The Iterable sequence must be used as data input.')
+        if isinstance(data, (str, bytes)):
+            raise TypeError('Sequence of numbers int or float must be used.')        
+        if event not in ['value','low','high']:
+            raise SyntaxError('Specified event does not exist, availabe options are: '+'\n'+
+                              '"value", "low", or "high".')  
+        if htype not in ['signal','occurrence','magnitude']:
+            raise SyntaxError('Specified htype does not exist, availabe options are: '+'\n'+
+                      '"signal", "occurrence", or "magnitude".')        
+        if not isinstance(beginning, str):
+            raise TypeError('Date in beginning attribute have to be string, eg. "1-1-1979"')
+        if step not in ['D','M','Y']:
+            raise SyntaxError('Custom data steps are not handled, use: '+'\n'+
+                      '"D" for daily, "M" for monthly, "Y" for annual.') 
+        if interval not in ['D','M','Y']:
+            raise SyntaxError('Custom output interval is not handled, use: '+'\n'+
+                      '"D" for daily, "M" for monthly, "Y" for annual.')                
+        if not isinstance(train_size, float) or train_size > 1 or train_size < 0:
+            raise TypeError('Train_size must be a float between 0 and 1.')        
+        if threshold_method not in ['leave' , 'max', 'median']:
+            raise SyntaxError('Specified threshold_method does not exist, availabe options are: '+'\n'+
+                              '"leave", "max", or "median".')   
+        if signal_method not in ['mean' , 'sum', 'min', 'max']:
+            raise SyntaxError('Specified signal_method does not exist, availabe options are: '+'\n'+
+                              '"mean" , "sum", "min", "max".')   
+        if not isinstance(area, (float, int)):
+            raise TypeError('Area must be a number.')        
+        # constructor calls
         self.data = data
         self.event = event
         self.htype = htype
@@ -145,20 +222,21 @@ class Host:
         self.interval = interval
         self.train_size = train_size
         self.threshold_method = threshold_method
+        self.threshold_overwrite = threshold_overwrite
+        self.signal_method = signal_method
+        self.area = area
         # results slots filled after calling .fit()
-        self.parameters = None
         self.train = None
         self.test = None
+        self.trend_data = None
+        self.seasonal_data = None
+        self.raw_data = None
+        self.trendmodel = None
+        self.seasonalmodel = None
         self.model = None
-        self.ts = None
-        self.tf = None
-        self.sf = None
-        self.cf = None
-        self.cs = None
-        self.trend = None
-        self.seasonality = None
-      
-        
+        self.function = None
+        self.equation = None
+    
     def __repr__(self):
         ''' Host class representation '''
         
@@ -178,7 +256,7 @@ class Host:
         self.threshold_method)
         
                 
-    def fit(self, repeats=10000, flow_statistic='kge'):
+    def fit(self, repeats=1000000, multiplier=1, include_damped=True, decision_statistic='r2', efficiency='kge', binary_occurrence=True):
         ''' Fitting method for finding the Host model.
         
         Parameters
@@ -186,7 +264,7 @@ class Host:
         repeats: int, default: 10000
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
-        flow_statistic: str, default: 'kge'
+        xxxxxxx flow_statistic: str, default: 'kge'
             the efficiency statistic to use when comparing flow distributions.
             The default 'kge' calls for Kling-Gupta efficiency. Other accepted
             option is 'nse' for Nash-Sutcliffe efficiency. This atribute is 
@@ -194,25 +272,30 @@ class Host:
             
         Slots set
         -------
-        trend: multi-indexed Series
-            a Series representing decomposed elements of long-term change, 
+        trend_data: array-like
+            an array representing decomposed values of long-term change, 
             aggregated in 'interval' provided to object.
-        seasonality: multi-indexed Series
-            a Series representing decomposed elements of short-term change, 
-            aggregated in 'interval' provided to object.        
-        model: str
-            a best-fitted model type: tf - trend fixed, ts - trend sloped, 
-            sf - seasonal, cf - combined fixed, cs - combined sloped.
-        tf: Fixed class object.
-        ts: Sloped class object.
-        sf: Fixed class object.
-        cf: CombinedFixed class object.
-        cs: CombinedSloped class object.
-        parameters: dict
-            a dictionary of best-fited model parameters for training data. 
-            Keys include: amplitude, omega, phase, offset, frequency, slope,
-            period, predictions, function,
-            and odditionally for occurrence: threshold.
+        seasonal_data: array-like
+            an array representing decomposed values of short-term change, 
+            aggregated in 'interval' provided to object.  
+        raw_data: array-like
+            an array of aggregated in interval preprocessed data.
+        trendmodel: Trend class object
+            a Trend class object of best-fitted model for trend data. Includes 
+            .parameters, .predictions, .function and .equation.
+        seasonalmodel: Seasonality class object
+            a Seasonality class object of best-fitted model for seasonal data. 
+            Includes .parameters, .predictions, .function and .equation.
+        model: Combined class object
+            a Combined class object of resultant model presented as waveform
+            synthesis of trend and seasonal models. Includes .parameters, 
+            .predictions, .function and .equation   .         
+        function: function object
+            a function object that represents mathematical formula of the
+            resultant model. Can be used to compute result for any x provided.
+        equation: string
+            a UTF-8 coded string representing mathematical formula of the
+            resultant model.
         train: dict
             a dictionary of best-fited model parameters applied to train data. 
             Keys include: 
@@ -226,6 +309,7 @@ class Host:
             recall, f1score;
             for flow: efficiency, efficiency statistic.
         '''
+        
         # performing data preprocessing, including identification of periods
         # with event occurring and aggregation to provided interval         
         aggregated = host_functions.preprocess(self.data, 
@@ -234,192 +318,141 @@ class Host:
                                                self.beginning, 
                                                self.step, 
                                                self.interval, 
-                                               self.threshold_method)
+                                               self.threshold_method,
+                                               self.threshold_overwrite,
+                                               self.signal_method,
+                                               self.area,
+                                               binary_occurrence)
+        #if self.htype=='magnitude':
+        #    aggregated = aggregated.drop(['count','sum'], axis=1)
+        self.raw_data = aggregated
         # data decomposition using STL 
-        trend, seasonal, residual = host_functions.stl_calc(aggregated[self.htype])
+        trend, seasonal, residual = host_functions.stl_calc(aggregated[self.htype], multiplier, repeats, self.interval)
         # assigninig decomposed series to slots for accessing once model is generated
-        self.trend = trend
-        self.seasonality = seasonal
+        self.trend_data = trend
+        self.seasonal_data = seasonal
         # splitting the data into train and test series
         t_train_y, t_train_x, t_test_y, t_test_x, split_index = host_functions.data_split(trend, self.train_size)
         s_train_y, s_train_x, s_test_y, s_test_x, split_index = host_functions.data_split(seasonal, self.train_size)
         train_original = np.array(aggregated[self.htype].iloc[:split_index])
         test_original = np.array(aggregated[self.htype].iloc[split_index:])        
         # fitting the models using their Classes
-        tf = Fixed(t_train_x, t_train_y)
-        tf.fit(repeats)
-        ts = Sloped(t_train_x, t_train_y)
-        ts.fit(repeats)        
-        sf = Fixed(s_train_x, s_train_y)
-        sf.fit(repeats)
-        cf = CombinedFixed(tf, sf)
-        cf.fit()
-        cs = CombinedSloped(ts, sf)
-        cs.fit()
+        trend_model = Trend(t_train_x, t_train_y)
+        trend_model.fit(repeats, include_damped, decision_statistic, efficiency)
+        self.trendmodel = trend_model
+        seasonal_model = Seasonality(s_train_x, s_train_y)
+        seasonal_model.fit(repeats, include_damped, decision_statistic, efficiency)   
+        self.seasonalmodel = seasonal_model
+        combined_model = Combined(trend_model, seasonal_model)
+        combined_model.fit()
+        self.model = combined_model
+
         # controlling fitting based on the type of harmonic: occurrence or flow
         if self.htype=='occurrence':
             # topological analysis returns accurracy statistics and best threshold
-            topo_ts = host_functions.topology(ts.predictions, train_original, slope=ts.slope)
-            topo_tf = host_functions.topology(tf.predictions, train_original)
-            topo_sf = host_functions.topology(sf.predictions, train_original)
-            topo_cf = host_functions.topology(cf.predictions, train_original)
-            topo_cs = host_functions.topology(cs.predictions, train_original, slope=cs.slope)
-            # selecting best model based on highest f1 score
-            scores = {'tf':topo_tf['f1score'], 'ts':topo_ts['f1score'],
-                      'sf':topo_sf['f1score'], 'cf':topo_cf['f1score'],
-                      'cs':topo_cs['f1score']}
-            best_model = max(scores, key=scores.get)
-            # assigning results to slots for accessing once model is generated
-            self.model = best_model
-            self.ts = ts
-            self.tf = tf
-            self.sf = sf
-            self.cf = cf
-            self.cs = cs
-            # creating dictionaries of models results for selection of best model
-            trainig_results = {
-                'ts': {'model':'ts', 
-                       'accuracy':topo_ts['accuracy'], 'precision':topo_ts['precision'], 
-                       'recall':topo_ts['recall'], 'f1score':topo_ts['f1score'],
-                       'contingency':topo_ts['contingency']},
-                'tf': {'model':'tf', 
-                       'accuracy':topo_tf['accuracy'], 'precision':topo_tf['precision'], 
-                       'recall':topo_tf['recall'], 'f1score':topo_tf['f1score'],
-                       'contingency':topo_tf['contingency']},
-                'sf': {'model':'sf', 
-                       'accuracy':topo_sf['accuracy'], 'precision':topo_sf['precision'], 
-                       'recall':topo_sf['recall'], 'f1score':topo_sf['f1score'],
-                       'contingency':topo_sf['contingency']},
-                'cf': {'model':'cf', 
-                       'accuracy':topo_cf['accuracy'], 'precision':topo_cf['precision'], 
-                       'recall':topo_cf['recall'], 'f1score':topo_cf['f1score'],
-                       'contingency':topo_cf['contingency']},
-                'cs': {'model':'cs', 
-                       'accuracy':topo_cs['accuracy'], 'precision':topo_cs['precision'], 
-                       'recall':topo_cs['recall'], 'f1score':topo_cs['f1score'],
-                       'contingency':topo_cs['contingency']}
-            }
-            training_parameters = {
-                'ts': {'amplitude':ts.amp, 'omega':ts.omega, 'phase':ts.phase, 
-                       'offset':ts.offset, 'frequency':ts.frequency, 
-                       'slope':ts.slope, 'period':ts.period, 
-                       'threshold':topo_ts['threshold'], 
-                       'predictions':ts.predictions, 'function':ts.function},
-                'tf': {'amplitude':tf.amp, 'omega':tf.omega, 'phase':tf.phase, 
-                       'offset':tf.offset, 'frequency':tf.frequency, 
-                       'slope':0, 'period':tf.period, 
-                       'threshold':topo_tf['threshold'], 
-                       'predictions':tf.predictions, 'function':tf.function},
-                'sf': {'amplitude':sf.amp, 'omega':sf.omega, 'phase':sf.phase, 
-                       'offset':sf.offset, 'frequency':sf.frequency, 
-                       'slope':0, 'period':sf.period, 
-                       'threshold':topo_sf['threshold'], 
-                       'predictions':sf.predictions, 'function':sf.function},
-                'cf': {'amplitude':cf.amp, 'omega':cf.omega, 'phase':cf.phase, 
-                       'offset':cf.offset, 'frequency':cf.frequency, 
-                       'slope':0, 'period':cf.period, 
-                       'threshold':topo_cf['threshold'], 
-                       'predictions':cf.predictions, 'function':cf.function},
-                'cs': {'amplitude':cs.amp, 'omega':cs.omega, 'phase':cs.phase, 
-                       'offset':cs.offset, 'frequency':cs.frequency, 
-                       'slope':cs.slope, 'period':cs.period, 
-                       'threshold':topo_cs['threshold'], 
-                       'predictions':cs.predictions, 'function':cs.function}
-            }
+            if 'slope' in trend_model.parameters:
+                slope = trend_model.parameters['slope']
+            else:
+                slope = 0
+            train_statistics = host_functions.topology(combined_model.predictions, train_original, slope=slope)
             # assigning results to slots for accessing once model is generated    
-            self.train = trainig_results[best_model]
-            self.parameters = training_parameters[best_model]
+            r2 = host_functions.rsquared(train_original, train_statistics['predictions'])
+            train_statistics['r2'] = r2
+            self.train = train_statistics
+            self.function = combined_model.function
+            self.equation =  combined_model.equation
+            
             # test series block
-            test_predictions = []
+            test_pred = []
             limits = []
             # generating predictions and limits for test series
             for x in t_test_x:         
-                test_predictions.append(self.parameters['function'](x))
-                limits.append(self.parameters['threshold']+self.parameters['slope']*x)
-            test_predictions = np.array(test_predictions)
+                test_pred.append(self.function(x))
+                limits.append(train_statistics['threshold']+slope*x)
+            test_pred = np.array(test_pred)
             limits = np.array(limits)
             # evaluation if prediction is higher than limit to indicate occurrence
-            test_predictions = host_functions.event_predict(test_predictions, limits)
+            test_predictions = host_functions.event_predict(test_pred, limits)
             # creating contingency table and calculating accurracy statistics
             test_results = host_functions.contingency_stat(test_predictions, test_original)
             # assigning results to slots for accessing once model is generated
+            r2 = host_functions.rsquared(test_original, test_results['predictions'])
+            test_results['r2'] = r2
             self.test = test_results
 
-        elif self.htype=='flow':
+        elif self.htype=='signal':
             # calculating efficiency based on defined statistic kge/nse
-            dist_ts = host_functions.efficiency_stat(ts.predictions, train_original, flow_statistic)
-            dist_tf = host_functions.efficiency_stat(tf.predictions, train_original, flow_statistic)
-            dist_sf = host_functions.efficiency_stat(sf.predictions, train_original, flow_statistic)
-            dist_cf = host_functions.efficiency_stat(cf.predictions, train_original, flow_statistic)
-            dist_cs = host_functions.efficiency_stat(cs.predictions, train_original, flow_statistic)
-            # choosing best-fit model based on highest efficiency score 
-            scores = {'tf':dist_tf, 'ts':dist_ts, 'sf':dist_sf, 'cf':dist_cf, 'cs':dist_cs}
-            best_model = max(scores, key=scores.get)
+            train_statistics, train_predictions = host_functions.efficiency_stat(combined_model.predictions, train_original, efficiency, True)
+            # calculate variance explained by model as r2
+            r2 = host_functions.rsquared(train_original, train_predictions)
+            #residuals =  - train_predictions
+            #square_res = np.sum(residuals**2)
+            #square_tot = np.sum((train_original - np.mean(train_original))**2)
+            #r2 = 1 - (square_res / square_tot)
             # assigning results to slots for accessing once model is generated
-            self.model = best_model
-            self.ts = ts
-            self.tf = tf
-            self.sf = sf
-            self.cf = cf
-            self.cs = cs
+            self.train = {'efficiency':train_statistics, 'r2':r2, 'predictions': train_predictions}
+            self.function = combined_model.function
+            self.equation =  combined_model.equation
+            
             # creating dictionaries of models results for selection of best model
-            trainig_results = {
-                'ts': {'model':'ts', 
-                       'efficiency':dist_ts,
-                       'efficiency statistic':flow_statistic},
-                'tf': {'model':'tf', 
-                       'efficiency':dist_tf,
-                       'efficiency statistic':flow_statistic},
-                'sf': {'model':'sf', 
-                       'efficiency':dist_sf,
-                       'efficiency statistic':flow_statistic},
-                'cf': {'model':'cf', 
-                       'efficiency':dist_cf,
-                       'efficiency statistic':flow_statistic},
-                'cs': {'model':'cs', 
-                       'efficiency':dist_cs,
-                       'efficiency statistic':flow_statistic}
-            }
-            training_parameters = {
-                'ts': {'amplitude':ts.amp, 'omega':ts.omega, 'phase':ts.phase, 
-                       'offset':ts.offset, 'frequency':ts.frequency, 
-                       'slope':ts.slope, 'period':ts.period, 
-                       'predictions':ts.predictions, 'function':ts.function},
-                'tf': {'amplitude':tf.amp, 'omega':tf.omega, 'phase':tf.phase, 
-                       'offset':tf.offset, 'frequency':tf.frequency, 
-                       'slope':0, 'period':tf.period, 
-                       'predictions':tf.predictions, 'function':tf.function},
-                'sf': {'amplitude':sf.amp, 'omega':sf.omega, 'phase':sf.phase, 
-                       'offset':sf.offset, 'frequency':sf.frequency, 
-                       'slope':0, 'period':sf.period, 
-                       'predictions':sf.predictions, 'function':sf.function},
-                'cf': {'amplitude':cf.amp, 'omega':cf.omega, 'phase':cf.phase, 
-                       'offset':cf.offset, 'frequency':cf.frequency, 
-                       'slope':0, 'period':cf.period, 
-                       'predictions':cf.predictions, 'function':cf.function},
-                'cs': {'amplitude':cs.amp, 'omega':cs.omega, 'phase':cs.phase, 
-                       'offset':cs.offset, 'frequency':cs.frequency, 
-                       'slope':cs.slope, 'period':cs.period,  
-                       'predictions':cs.predictions, 'function':cs.function}
-            }
-            # assigning results to slots for accessing once model is generated
-            self.train = trainig_results[best_model]
-            self.parameters = training_parameters[best_model]           
+            # assigning results to slots for accessing once model is generated         
             # test series block
-            test_predictions = []
+            test_pred = []
             for x in t_test_x:         
-                test_predictions.append(self.parameters['function'](x))
-            test_predictions = np.array(test_predictions)
+                test_pred.append(self.function(x))
+            test_pred = np.array(test_pred)
             # calculating efficiency statistic for test data based on selected model
-            test_efficiency = host_functions.efficiency_stat(test_predictions, test_original, flow_statistic) 
+            test_efficiency, test_predictions = host_functions.efficiency_stat(test_pred, test_original, efficiency, True) 
+            # calculate variance explained by model as r2
+            r2 = host_functions.rsquared(test_original, test_predictions)
+            #residuals = test_original - test_predictions
+            #square_res = np.sum(residuals**2)
+            #square_tot = np.sum((test_original - np.mean(test_original))**2)
+            #r2 = 1 - (square_res / square_tot)
             # assigning results to slots for accessing once model is generated
-            self.test = {'efficiency':test_efficiency, 'efficiency statistic':flow_statistic}
+            self.test = {'efficiency':test_efficiency, 'r2':r2, 'predictions': test_predictions}
+        
+        elif self.htype=='magnitude':
+            if 'slope' in trend_model.parameters:
+                slope = trend_model.parameters['slope']
+            else:
+                slope = 0
+            # calculating efficiency based on defined statistic kge/nse
+            train_results = host_functions.magnitude_topology(combined_model.predictions, train_original, slope=slope)
+            # calculate variance explained by model as r2
+            r2 = host_functions.rsquared(train_original, train_results['magnitude predictions'])
+            #residuals = train_original - train_results['magnitude predictions']
+            #square_res = np.sum(residuals**2)
+            #square_tot = np.sum((train_original - np.mean(train_original))**2)
+            #r2 = 1 - (square_res / square_tot)
+            train_results['r2'] = r2
+            self.train = train_results
+            self.function = combined_model.function
+            self.equation =  combined_model.equation    
+            
+            # creating dictionaries of models results for selection of best model
+            # assigning results to slots for accessing once model is generated         
+            # test series block
+            test_pred = []
+            for x in t_test_x:         
+                test_pred.append(self.function(x))
+            test_pred = np.array(test_pred)            
+            test_results = host_functions.magnitude_topology(test_pred, test_original, slope=slope, threshold=train_results['threshold'])
+            # calculate variance explained by model as r2
+            r2 = host_functions.rsquared(test_original, test_results['magnitude predictions'])
+            #residuals = test_original - test_results['magnitude predictions']
+            #square_res = np.sum(residuals**2)
+            #square_tot = np.sum((test_original - np.mean(test_original))**2)
+            #r2 = 1 - (square_res / square_tot)            
+            # assigning results to slots for accessing once model is generated
+            test_results['r2'] = r2
+            self.test = test_results
             
         else:
             raise SyntaxError("Unrecognized type of parameter. Define the HOST \
                               object with: htype='flow' for flow analysis or \
-                              htype='occurrence' for occurrence analysis. \
-                              See documentation for current limitations.")
+                              htype='occurrence' for occurrence analysis or \
+                              htype='magnitude' for magnitude analysis.")
         
     # method for generating results summary    
     def results(self):
@@ -432,185 +465,229 @@ class Host:
         '''
         
         if self.htype=='occurrence':
-            return {'model type':self.train['model'],
+            return {'model equation':self.equation,
                     'trainig accuracy':self.train['accuracy'],
                     'testing accuracy':self.test['accuracy'],
-                    'function amplitude':self.parameters['amplitude'],
-                    'function period':self.parameters['period'],
-                    'function offset':self.parameters['offset'],
-                    'function slope':self.parameters['slope'],
-                    'decision threshold at day one':self.parameters['threshold']
+                    'trend component parameters':self.model.parameters['trend'],
+                    'seasonal component parameters':self.model.parameters['seasonal'],
+                    'decision threshold at day one':self.train['threshold']
                     }
         
-        elif self.htype=='flow':
-            return {'model type':self.train['model'],
+        elif self.htype=='signal':
+            return {'model equation':self.equation,
                     'trainig efficiency':self.train['efficiency'],
                     'testing accuracy':self.test['efficiency'],
-                    'function amplitude':self.parameters['amplitude'],
-                    'function period':self.parameters['period'],
-                    'function offset':self.parameters['offset'],
-                    'function slope':self.parameters['slope'],
+                    'trend component parameters':self.model.parameters['trend'],
+                    'seasonal component parameters':self.train['seasonal'],
                     }
-        
+        elif self.htype=='magnitude':
+            return {'model equation':self.equation,
+                    'trainig efficiency':self.train['efficiency'],
+                    'testing accuracy':self.test['efficiency'],
+                    'trend component parameters':self.model.parameters['trend'],
+                    'seasonal component parameters':self.train['seasonal'],
+                    }
         else:
-            raise SyntaxError("Unrecognized type of parameter. Define the HOST \
-                              object with: htype='flow' for flow analysis or \
-                              htype='occurrence' for occurrence analysis. \
-                              See documentation for current limitations.") 
+            raise SyntaxError('''Unrecognized htype. Accepted are: signal, 
+                              occurrence, or magnitude.''') 
              
-    # method for generating function object, easier accessed than calling parameters dict                          
-    def function(self):
-        ''' Method returning function object of the found model.
-                   
-        Returns
-        -------
-        function: function
-            function object for the found model. Can be also accessed 
-            directly by calling .parameters['function']
-        
-        Examples
-        -------
-        host_model = test_class_bak.Host(flow, 'lf', 'occurrence')
-        host_model.fit()
-        host_function = host_model.function()
-        print(host_function(379))
-        >> -5.801
-        '''  
-        
-        return self.parameters['function']
 
 
-# Secondary Classes
-class Fixed:
-    ''' Class of the fixed trend model object '''
+class Trend:
+    ''' Class describing trend model parameters '''
     
-    
-    __slots__ = ['data','x', 'y', 'amp','omega', 'phase','offset','frequency',
-                 'period','r2','predictions', 'function']
-    
+    #__slots__ = ['data','x','y','tpredictions','tfunction','tparameters','tequation']
     
     def __init__(self, x, y):
-        ''' Fixed class constructor '''
-        
-        self.y = y
+        ''' Trend class constructor '''
         self.x = x
+        self.y = y
         # results slots filled after calling .fit()
-        self.amp = None
-        self.omega = None
-        self.phase = None
-        self.offset = None
-        self.frequency = None
-        self.period = None
-        self.r2 = None
+        self.parameters = None
         self.predictions = None
         self.function = None
-        
-        
+        self.equation = None
+        self.models = None
+
     def __repr__(self):
-        ''' Fixed class representation '''
+        ''' Trend class representation '''
+        if self.parameters == None:
+            return 'Trend HOST model object. Use .fit() to solve.'
+        else:
+            strpar = ', '.join("{!s} = {!r}".format(k,v) for (k,v) in self.parameters.items())
+            return 'Trend HOST model object: {0} \n \
+                    Parameters: {1}'.format(self.equation, strpar)
+
+    def fit(self, repeats, include_damped, statistic, efficiency):
+        ''' Fitting method for finding the best-fit function. 
+        Chooses from all models available in host_models and autofind best-fit.
+        To find specific model parameters use model-specific classes.
         
-        return 'Fixed HOST model:\n \
-        amplitude: {0} \n \
-        omega: {1} \n \
-        phase: {2} \n \
-        offset: {3} \n \
-        frequency: {4} \n \
-        period: {5} \n \
-        r2: {6}'.format(self.amp, self.omega, 
-        self.phase, self.offset, self.frequency, self.period, 
-        self.r2)   
-           
+        Parameters
+        ----------
+        repeats: int
+            integer representing the maximum number of function calls. 
+            Increasing this number significantly might lower the performance.
+            
+        Slots set
+        -------
+        parameters: dict
+            each parameter value for the model.
+        equation: string
+            a string representation of mathematical formula for the model.
+        predictions: array
+            predicted values of the model based on calculated function.
+        function: function object
+            function object for the found model.
+        '''
+        # fit the fixed function to data
+        warnmsg1 = ' trend model skipped due to fail in converge with '
+        warnmsg2 = ' repeats. Trying different models. Increase repeats argument to include.'
+        
+        try:
+            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency)
+        except:
+            tsine = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Sine'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:            
+            tsines = host_models.fit_sine(self.x, self.y, True, repeats, efficiency)
+        except:
+            tsines = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Sine sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tampmod = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Ampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tampmods = host_models.fit_amplitude_mod(self.x, self.y, True, repeats, efficiency)
+        except:
+            tampmods = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Ampmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tfreqmod = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Freqmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tfreqmods = host_models.fit_frequency_mod(self.x, self.y, True, repeats, efficiency)
+        except:
+            tfreqmods = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Freqmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency)
+        except:
+            tmodul = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Modulated'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tmoduls = host_models.fit_modulated(self.x, self.y, True, repeats, efficiency)
+        except:
+            tmoduls = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Modulated sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tincdec = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Incdec'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tincdecs = host_models.fit_incdec_mod(self.x, self.y, True, repeats, efficiency)
+        except:
+            tincdecs = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Incdec sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            
+        self.models = {'sine':tsine, 'sine sloped': tsines, 'ampmod': tampmod, 
+                       'ampmod sloped': tampmods, 'freqmod': tfreqmod,
+                       'freqmod sloped': tfreqmods, 'modulated': tmodul,
+                       'modulated sloped': tmoduls, 'incdec': tincdec,
+                       'incdec sloped': tincdecs}
+        
+        scores = [tsine[statistic], tsines[statistic], tampmod[statistic], tampmods[statistic], 
+                          tfreqmod[statistic], tfreqmods[statistic], tmodul[statistic], 
+                          tmoduls[statistic],  tincdec[statistic], tincdecs[statistic]]
+        models = [tsine, tsines, tampmod, tampmods, tfreqmod, tfreqmods, 
+                   tmodul, tmoduls, tincdec, tincdecs]      
+        
+        if include_damped==True:
+            try:
+                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency)
+            except:
+                tdamped = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Damped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            try:
+                tdampeds = host_models.fit_damped(self.x, self.y, True, repeats, efficiency)
+            except:
+                tdampeds = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Damped sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            try:
+                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency)
+            except:
+                tdampmod = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Dampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            try:
+                tdampmods = host_models.fit_damped_mod(self.x, self.y, True, repeats, efficiency)        
+            except:
+                tdampmods = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Dampmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
                 
-    def fit(self, repeats):
-        ''' Fitting method for finding the fixed harmonic function. Used for
-        trend and seasonality data.
-        
-        Parameters
-        ----------
-        repeats: int
-            integer representing the maximum number of function calls. 
-            Increasing this number significantly might lower the performance.
+            self.models['damped'] = tdamped
+            self.models['damped sloped'] = tdampeds
+            self.models['dampmod'] = tdampmod
+            self.models['dampmod sloped'] = tdampmods
             
-        Slots set
-        -------
-        amp: float
-            amplitude of the model.
-        omega: float 
-            omega of the model.
-        phase: float
-            phase of the model.
-        offset: float 
-            offset of the model.
-        frequency: float 
-            frequency of the model.
-        period: float 
-            period of the model.
-        r2: float 
-            r2 of the model relative to initial decomposed data.
-        predictions: array
-            predicted values of the model based on calculated function.
-        function: function object
-            function object for the found model.
-        '''
-        # fit the fixed function to data
-        fitted = host_functions.fit_simple(self.x, self.y, repeats)
-        # assigning results to slots for accessing once model is generated
-        self.amp = fitted['amp']
-        self.omega = fitted['omega']
-        self.phase = fitted['phase']
-        self.offset = fitted['offset']
-        self.frequency = fitted['freq']
-        self.period = fitted['period']
-        self.r2 = fitted['r2']
-        self.predictions = fitted['y_pred']
-        self.function = fitted['function']
-    
-    
+            scores.append(tdamped[statistic])
+            scores.append(tdampeds[statistic])
+            scores.append(tdampmod[statistic])
+            scores.append(tdampmods[statistic])
+            models.append(tdamped)
+            models.append(tdampeds)
+            models.append(tdampmod)
+            models.append(tdampmods)
         
-class Sloped:
-    ''' Class of the sloped trend model object '''
+        scores = np.array(scores)
+        if np.isnan(scores).all():
+            raise ValueError('None of the trend models was optimized with {0} repeats. \
+                             Increase argument value in .fit(repeats=).'.format(repeats))
+        else:
+            models = np.array(models)
+            maxscore = np.argmax(scores)
+            model = models[maxscore]
+        
+        # assigning results to slots for accessing once model is generated
+        self.predictions = model['predictions']
+        self.function = model['function']
+        self.equation = model['equation']      
+        self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+        
+        
+class Seasonality:
+    ''' Class describing seasonality model parameters ''' 
     
-    
-    __slots__ = ['data', 'x', 'y', 'amp', 'omega', 'phase', 'offset', 'frequency', 
-                 'slope', 'period', 'r2', 'predictions', 'function']
-    
+    #__slots__ = ['data','x','y','spredictions','sfunction','sparameters','sequation']
     
     def __init__(self, x, y):
-        ''' Sloped class constructor '''
-        
-        self.y = y
+        ''' Seasonality class constructor '''
         self.x = x
+        self.y = y
         # results slots filled after calling .fit()
-        self.amp = None
-        self.omega = None
-        self.phase = None
-        self.offset = None
-        self.frequency = None
-        self.slope = None
-        self.period = None
-        self.r2 = None
+        self.parameters = None
         self.predictions = None
         self.function = None
-    
-    
+        self.equation = None
+        self.models = None
+
     def __repr__(self):
-        ''' Sloped class representation '''        
-        return 'Sloped HOST model:\n \
-        amplitude: {0} \n \
-        omega: {1} \n \
-        phase: {2} \n \
-        offset: {3} \n \
-        frequency: {4} \n \
-        period: {5} \n \
-        slope: {6} \n \
-        r2: {7}'.format(self.amp, self.omega, 
-        self.phase, self.offset, self.frequency, self.period, self.slope,
-        self.r2)
-        
-        
-    def fit(self, repeats):
-        ''' Fitting method for finding the fixed harmonic function. Used for
-        trend and seasonality data.
+        ''' Seasonality class representation '''
+        if self.parameters == None:
+            return 'Seasonality HOST model object. Use .fit() to solve.'
+        else:
+            strpar = ', '.join("{!s} = {!r}".format(k,v) for (k,v) in self.parameters.items())
+            return 'Seasonality HOST model object: {0} \n \
+                    Parameters: {1}'.format(self.equation, strpar)
+
+    def fit(self, repeats, include_damped, statistic, efficiency):
+        ''' Fitting method for finding the best-fit function. 
+        Chooses from all models available in host_models and autofind best-fit.
+        To find specific model parameters use model-specific classes.
         
         Parameters
         ----------
@@ -620,226 +697,139 @@ class Sloped:
             
         Slots set
         -------
-        amp: float
-            amplitude of the model.
-        omega: float 
-            omega of the model.
-        phase: float
-            phase of the model.
-        offset: float 
-            offset of the model.
-        frequency: float 
-            frequency of the model.
-        slope: float
-            slope of the model.
-        period: float 
-            period of the model.
-        r2: float 
-            r2 of the model relative to initial decomposed data.
+        parameters: dict
+            each parameter value for the model.
+        equation: string
+            a string representation of mathematical formula for the model.
         predictions: array
             predicted values of the model based on calculated function.
         function: function object
             function object for the found model.
         '''
         # fit the fixed function to data
-        fitted = host_functions.fit_sloped(self.x, 
-                                       self.y, 
-                                       repeats)
+        warnmsg1 = ' seasonal model skipped due to fail in converge with '
+        warnmsg2 = ' repeats. Trying different models. Increase repeats argument to include.'
+        
+        try:
+            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency)
+        except:
+            tsine = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Sine'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tampmod = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Ampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tfreqmod = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Freqmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency)
+        except:
+            tmodul = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Modulated'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+        try:
+            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency)
+        except:
+            tincdec = {statistic: np.nan, efficiency: np.nan}
+            warnings.warn('Incdec'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            
+        self.models = {'sine':tsine, 'ampmod': tampmod, 'freqmod': tfreqmod, 
+                       'modulated': tmodul, 'incdec': tincdec}
+        
+        scores = [tsine[statistic], tampmod[statistic], tfreqmod[statistic], tmodul[statistic],  
+                          tincdec[statistic]]
+        models = [tsine, tampmod, tfreqmod, tmodul, tincdec]
+        
+        if include_damped==True:
+            try:
+                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency)
+            except:
+                tdamped = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Damped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            try:
+                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency)
+            except:
+                tdampmod = {statistic: np.nan, efficiency: np.nan}
+                warnings.warn('Dampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
+            
+            self.models['damped'] = tdamped
+            self.models['dampmod'] = tdampmod
+            scores.append(tdamped[statistic])
+            scores.append(tdampmod[statistic])
+            models.append(tdamped)
+            models.append(tdampmod)
+            
+        scores = np.array(scores)
+        if np.isnan(scores).all():
+            raise ValueError('None of the seasonal models was optimized with {0} repeats. \
+                             Increase argument value in .fit(repeats=).'.format(repeats))
+        else:
+            models = np.array(models)
+            maxscore = np.argmax(scores)
+            model = models[maxscore]
+        
         # assigning results to slots for accessing once model is generated
-        self.amp = fitted['amp']
-        self.omega = fitted['omega']
-        self.phase = fitted['phase']
-        self.offset = fitted['offset']
-        self.frequency = fitted['freq']
-        self.slope = fitted['slope']
-        self.period = fitted['period']
-        self.r2 = fitted['r2']
-        self.predictions = fitted['y_pred']
-        self.function = fitted['function']
+        self.predictions = model['predictions']
+        self.function = model['function']
+        self.equation = model['equation']      
+        self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+   
     
-
-
-class CombinedFixed:
-    ''' Class of the combined fixed model object '''
+class Combined:
+    ''' Class of the combined model object '''
     
     
-    __slots__ = ['tf', 'sf', 'amp', 'omega', 'phase', 'offset', 'frequency', 
-                 'period', 'r2', 'predictions', 'function']
+    #__slots__ = ['trend_model','seasonal_model','cpredictions','cfunction','cparameters','cequation']
     
     
-    def __init__(self, tf, sf):
-        ''' CombinedFixed class constructor '''
+    def __init__(self, trend_model, seasonal_model):
+        ''' Combined class constructor '''
         
-        self.tf = tf
-        self.sf = sf
+        self.trend_model = trend_model
+        self.seasonal_model = seasonal_model
         # results slots filled after calling .fit()
-        self.amp = None
-        self.omega = None
-        self.phase = None
-        self.offset = None
-        self.frequency = None
-        self.period = None
-        self.r2 = None
-        self.predictions = None
+        self.parameters = None
         self.function = None
-
-
-    def __repr__(self):
-        ''' CombinedFixed class representation '''
+        self.predictions = None
+        self.equation = None
         
-        return 'Fixed HOST model:\n \
-        amplitude: {0} \n \
-        omega: {1} \n \
-        phase: {2} \n \
-        offset: {3} \n \
-        frequency: {4} \n \
-        period: {5} \n \
-        r2: {6}'.format(self.amp, self.omega, 
-        self.phase, self.offset, self.frequency, self.period, 
-        self.r2)
+        
+    def __repr__(self):
+        ''' Combined class representation '''
+        if self.parameters == None:
+            return 'Combined HOST model object. Use .fit() to solve.'
+        else:
+            strpar = ', '.join("{!s} = {!r}".format(k,v) for (k,v) in self.parameters.items())
+            return 'Combined HOST model object: {0} \n \
+                    Parameters: {1}'.format(self.equation, strpar)
             
     
     def fit(self):
-        ''' Fitting method for finding the fixed harmonic function. Used for
-        trend and seasonality data.
-        
-        Parameters
-        ----------
-        repeats: int
-            integer representing the maximum number of function calls. 
-            Increasing this number significantly might lower the performance.
-            
+        ''' Fitting method for finding the function. Used for trend and 
+        seasonality data.
+                    
         Slots set
         -------
-        amp: list of floats
-            amplitudes of the model, [0] for trend, [1] for seasonal component.
-        omega: list of floats 
-            omega of the model, [0] for trend, [1] for seasonal component.
-        phase: list of floats
-            phase of the model, [0] for trend, [1] for seasonal component.
-        offset: list of floats 
-            offset of the model, [0] for trend, [1] for seasonal component.
-        frequency: list of floats 
-            frequency of the model, [0] for trend, [1] for seasonal component.
-        period: list of floats 
-            period of the model, [0] for trend, [1] for seasonal component.
-        r2: list of floats
-            r2 of the models relative to initial decomposed data,
-            [0] for trend, [1] for seasonal component.
+        parameters: dict
+            each parameter value for the model. Position [0] represent trend
+            component and position [1] represents seasonal component.
+        equation: string
+            a string representation of mathematical formula for the model.
         predictions: array
             predicted values of the model based on calculated function.
         function: function object
             function object for the found model.
         '''
+        
         # assigning results to slots for accessing once model is generated
         # combined model predictions are the sum of trend and seasonal models
-        self.predictions = self.tf.predictions + self.sf.predictions
+        self.predictions = self.trend_model.predictions + self.seasonal_model.predictions
         # generating function object of the model
-        self.function = lambda x: (self.tf.amp * np.sin(self.tf.omega*(x-self.tf.phase))) + \
-            (self.sf.amp * np.sin(self.sf.omega*(x-self.sf.phase))) + \
-            (self.sf.offset +self. sf.offset)
+        self.function = lambda x: self.trend_model.function(x) + self.seasonal_model.function(x)
         # assigning function parameters in form of list, as two parameters are 
         # included in the model equation
-        self.amp = [self.tf.amp, self.sf.amp]
-        self.omega = [self.tf.omega, self.sf.omega]
-        self.phase = [self.tf.phase, self.sf.phase]
-        self.offset = [self.tf.offset, self.sf.offset]
-        self.frequency = [self.tf.frequency, self.sf.frequency]
-        self.period = [self.tf.period, self.sf.period]
-        self.r2 = [self.tf.r2, self.sf.r2]
-        
-        
-
-class CombinedSloped:
-    ''' Class of the combined sloped model object '''
-    
-    
-    __slots__ = ['ts', 'sf', 'amp', 'omega', 'phase', 'offset', 'frequency', 
-                 'slope', 'period', 'r2', 'predictions', 'function']
-    
-    
-    def __init__(self, ts, sf):
-        ''' CombinedSloped class constructor '''
-        
-        self.ts = ts
-        self.sf = sf
-        # results slots filled after calling .fit()
-        self.amp = None
-        self.omega = None
-        self.phase = None
-        self.offset = None
-        self.frequency = None
-        self.slope = None
-        self.period = None
-        self.r2 = None
-        self.predictions = None
-        self.function = None
-        
-        
-    def __repr__(self):
-        ''' CombinedSloped class representation '''
-        
-        return 'Sloped HOST model:\n \
-        amplitude: {0} \n \
-        omega: {1} \n \
-        phase: {2} \n \
-        offset: {3} \n \
-        frequency: {4} \n \
-        period: {5} \n \
-        slope: {6} \n \
-        r2: {7}'.format(self.amp, self.omega, 
-        self.phase, self.offset, self.frequency, self.period, self.slope,
-        self.r2) 
-           
-    
-    def fit(self):
-        ''' Fitting method for finding the fixed harmonic function. Used for
-        trend and seasonality data.
-        
-        Parameters
-        ----------
-        repeats: int
-            integer representing the maximum number of function calls. 
-            Increasing this number significantly might lower the performance.
-            
-        Slots set
-        -------
-        amp: list of floats
-            amplitudes of the model, [0] for trend, [1] for seasonal component.
-        omega: list of floats 
-            omega of the model, [0] for trend, [1] for seasonal component.
-        phase: list of floats
-            phase of the model, [0] for trend, [1] for seasonal component.
-        offset: list of floats 
-            offset of the model, [0] for trend, [1] for seasonal component.
-        frequency: list of floats 
-            frequency of the model, [0] for trend, [1] for seasonal component.
-        slope: float
-            slope of the model.
-        period: list of floats 
-            period of the model, [0] for trend, [1] for seasonal component.
-        r2: list of floats
-            r2 of the models relative to initial decomposed data,
-            [0] for trend, [1] for seasonal component.
-        predictions: array
-            predicted values of the model based on calculated function.
-        function: function object
-            function object for the found model.
-        '''
-        # assigning results to slots for accessing once model is generated
-        # combined model predictions are the sum of trend and seasonal models
-        self.predictions = self.ts.predictions + self.sf.predictions
-        # generating function object of the model
-        self.function = lambda x: self.ts.slope * x + (self.ts.amp * np.sin(self.ts.omega*(x-self.ts.phase))) + \
-            (self.sf.amp * np.sin(self.sf.omega*(x-self.sf.phase))) + \
-            (self.sf.offset + self.sf.offset)
-        # assigning function parameters in form of list, as two parameters are 
-        # included in the model equation
-        self.amp = [self.ts.amp, self.sf.amp]
-        self.omega = [self.ts.omega, self.sf.omega]
-        self.phase = [self.ts.phase, self.sf.phase]
-        self.offset = [self.ts.offset, self.sf.offset]
-        self.frequency = [self.ts.frequency, self.sf.frequency]
-        self.slope = self.ts.slope
-        self.period = [self.ts.period, self.sf.period]
-        self.r2 = [self.ts.r2, self.sf.r2]
+        self.parameters = {'trend':self.trend_model.parameters, 'seasonal':self.seasonal_model.parameters}
+        self.equation =  self.trend_model.equation + '+' + self.seasonal_model.equation

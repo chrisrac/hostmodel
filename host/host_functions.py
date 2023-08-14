@@ -9,6 +9,8 @@ https://github.com/chrisrac/hostmodel
 Future functionalities will be added in later development.
 Please reffer to documentation for information on current stage of development.
 
+v. 1.0
+
 @authors: Krzysztof Raczynski
 """
 
@@ -16,13 +18,13 @@ import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None
 pd.set_option('mode.chained_assignment', None)
-import scipy.optimize
 from statsmodels.tsa.seasonal import STL
+import host_models
 
 
-# functions block:
-    
-def preprocess(data, event, htype, beginning, step, interval, threshold_method):
+def preprocess(data, event, htype, beginning, datastep, interval, 
+               threshold_method, threshold_overwrite, signal_method, area,
+               binary_occurrence=True):
     '''
     Preprocessing function used to prepare data, identify analyzed events (flood,
     streamflow drought, maximal or minimal flows) and aggregate them to analyzed
@@ -31,256 +33,193 @@ def preprocess(data, event, htype, beginning, step, interval, threshold_method):
     Parameters
     ----------
     data : array-like
-        The Iterable sequence of numbers (int/float) to be used, f.e.: list,
+        the Iterable sequence of numbers (int/float) to be used, f.e.: list,
         pd.Series, np.array or pd.DataFrame slice.
     event : string
         string representing type of studied event. Available options are:
-            "lf" or "lowflow" : for streamflow drought/low flow analysis;
-            "fd" or "flood"   : for flood/high flow analysis.
+            "value" : for direct values analysis. Use signal_method for 
+                       aggregation control
+            "low"   : for low/minimal values in aggregation step analysis;
+            "high"  : for high/maximial values in aggregation step analysis.
     htype : string
         string representing the type of analysis. Available options are:
-            "flow"       : for analysis of min/max flows
-            "occurrence" : for analysis of flood/drought occurrence. Please
-                           refer to current documentation for limitations 
-                           explanation.
+            "signal"     : for non-parametric values analysis;
+            "occurrence" : for analysis of event occurrence (binary classification);
+            "magnitude"  : for analysis of magnitudes of events in aggregation
+                           interval, presented as sum of volumes by number of 
+                           days in interval. Use area optional parameter to
+                           resize the magnitude to unitary information.
     beginning : date
         date for timeseries to start from, eg.: '01-01-1979'.
-    step : string
+    datastep : string
         the step of input data. Use 'D' for daily data, 'M' for monthly data or 
         'Y' for annual data.
     interval : string
         the interval of data to be agglomerated to. Use 'D' for daily, 
         'M' for monthly or 'Y' for annual (year).
     threshold_method : string
-        Used to controll objective method feedback on high discretized data, 
+        used to controll objective method feedback on high discretized data, 
         that results in less than five unique values in the series. 
         Available options are:
             "leave"  : breaks the computation, no threshold is returned;
             "min"    : minimal value of data is used as threshold;
             "median" : data median is used as threshold.
-
+    threshold_overwrite : int/float
+        threshold value to be used instead of automatic use of objective 
+        threshold method.
+    signal_method : string
+        allows to control the aggregation method when signal event is used. 
+        Available options are:
+            "mean" : mean values are computed from signal when aggregating;
+            "sum" : totals are calculated from signal when aggregating;
+            "min" : minimal signal values are used in aggregation step;
+            "max" : maximal signal values are used in aggregation step;
+    area : float / int
+        if Area is provided and htype='magnitude' is used, the output will
+        contain unitary magnitudes as product (magnitude / Area) instead of
+        direct magnitudes. This allows to compare the magnitude of event between
+        catchments of different sizes. Leave the default value (as 0) to not
+        include transform to unit values.
+        Default is 0.
+    
     Raises
     ------
     SyntaxError
-        if event is missdefinied. Event string must be either "lf" or "lowflow" 
-        for drought/low flow studies or "fd" or "flood" for flood/max flow 
-        analysis.
+        if event is missdefinied. Event string must be either "signal", "min" 
+        or "max" depending on user needs.
+    Exception
+        if non-standard data step is used. Only daily ("D"), monthly ("M") and
+        annual ("Y") steps are supported.
 
     Returns
     -------
-    aggreg_data : array-like
-        time indexed array-like object with events identified and data 
+    aggreg_data : pandas DataFrame
+        time indexed DataFrame with defined variable or parameters computed and
         aggregated to defined interval.
     '''
     
     # change data to pandas DataFrame:
-    indexed_data = data.to_frame()
+    indexed_data = pd.DataFrame(data)
     # assign datetime index and clean:
     indexed_data['indexes'] = pd.date_range(beginning,
                                             periods=len(data), 
-                                            freq=step)
+                                            freq=datastep)
     indexed_data = indexed_data.set_index('indexes',drop=True)
     indexed_data = indexed_data.squeeze()
-    
-    if interval == 'M':
+    # prepare aggregation indexing space
+    if interval == 'D':
+        step = ['year', 'month', 'day']
+    elif interval == 'M':
         step = ['year', 'month']
     elif interval == 'Y':
         step = ['year']   
     
-    # low flow / streamflow analysis:
-    if event == 'lf' or event == 'lowflow':
-        # import objective_thresholds low flow analysis module:
-        import objective_thresholds.lowflow as olf
-        # calculate threshold:
-        threshold_value = olf.threshold(indexed_data, method=threshold_method)
-        # convert data to frame:
-        indexed_data = indexed_data.to_frame()
-        indexed_data.columns = ['flow']
-        # detect periods of drought occurrence based on calculated threshold:
-        indexed_data.loc[indexed_data.flow <= threshold_value, 'occurrence'] = 1
-        # prepare aggregation intervals:
-        indexed_data['month'] = indexed_data.index.month
-        indexed_data['year'] = indexed_data.index.year
-        # aggregate occurrence data by sum for occurrence:    
-        if htype == 'occurrence':
-            aggreg_data = indexed_data.groupby(step)['occurrence'].sum().to_frame()
-            aggreg_data.loc[aggreg_data['occurrence'] > 0] = 1
-        elif htype == 'flow':
-            aggreg_data = indexed_data.groupby(step)['flow'].min().to_frame()      
+    indexed_data = indexed_data.to_frame()
+    indexed_data.columns = ['signal']
+    indexed_data['volume'] = 0
     
-    # flood analysis:
-    elif event == 'fd' or event == 'flood':
-        # import objective_thresholds flood analysis module:
-        import objective_thresholds.flood as ofd
-        # calculate threshold:
-        threshold_value = ofd.threshold(data, method=threshold_method)
-        # convert data to frame:
-        indexed_data = indexed_data.to_frame()
-        indexed_data.columns = ['flow']
-        # detect periods of flood occurrence based on calculated threshold:
-        indexed_data.loc[indexed_data.flow >= threshold_value, 'occurrence'] = 1
-        # prepare aggregation intervals:
-        indexed_data['month'] = indexed_data.index.month
-        indexed_data['year'] = indexed_data.index.year
-        # aggregate occurrence data by sum for occurrence:
-        if htype == 'occurrence':    
-            aggreg_data = indexed_data.groupby(step)['occurrence'].sum().to_frame() 
-            aggreg_data.loc[aggreg_data['occurrence'] > 0] = 1
-        elif htype == 'flow':
-            aggreg_data = data.groupby(step)['flow'].max().to_frame()  
-       
+    if event == 'value':
+        indexed_data['occurrence'] = 1
+        indexed_data.loc[pd.isnull(indexed_data['signal'])] = 0
+        if datastep == 'D':
+            indexed_data['volume'] = indexed_data.signal * 86400 
+        elif datastep == 'M':
+            indexed_data['volume'] = indexed_data.signal * \
+                (indexed_data.index.days_in_month*86400)
+        elif datastep == 'Y':
+            indexed_data['volume'] = indexed_data.signal * (365*86400) 
+        else:
+            raise Exception('''Non-standard step (daily, monthly or annual) 
+                            input data is not supported.''')            
+    elif event == 'low':
+        if threshold_overwrite != None:
+            threshold_value = threshold_overwrite
+        else:
+            import objective_thresholds.lowflow as olf
+            threshold_value = olf.threshold(indexed_data['signal'], method=threshold_method)
+        indexed_data.loc[indexed_data.signal <= threshold_value, 'occurrence'] = 1
+        if datastep == 'D':
+            indexed_data['volume'].loc[indexed_data.signal <= threshold_value] = \
+                (threshold_value - indexed_data.signal)*86400 
+        elif datastep == 'M':
+            indexed_data['volume'].loc[indexed_data.signal <= threshold_value] = \
+                (threshold_value - indexed_data.signal) * \
+                (indexed_data.index.days_in_month*86400)
+        elif datastep == 'Y':
+            indexed_data['volume'].loc[indexed_data.signal <= threshold_value] = \
+                (threshold_value - indexed_data.signal) * (365*86400)   
+        else:
+            raise Exception('''Non-standard step (daily, monthly or annual) 
+                            input data is not supported.''')
+    elif event == 'high':
+        if threshold_overwrite != None:
+            threshold_value = threshold_overwrite
+        else:
+            import objective_thresholds.flood as ofd
+            threshold_value = ofd.threshold(indexed_data['signal'], method=threshold_method)  
+        indexed_data.loc[indexed_data.signal >= threshold_value, 'occurrence'] = 1
+        if datastep == 'D':
+            indexed_data['volume'].loc[indexed_data.signal >= threshold_value] = \
+                (indexed_data.signal - threshold_value)*86400 
+        elif datastep == 'M':
+            indexed_data['volume'].loc[indexed_data.signal >= threshold_value] = \
+                (indexed_data.signal - threshold_value) * \
+                (indexed_data.index.days_in_month*86400)
+        elif datastep == 'Y':
+            indexed_data['volume'].loc[indexed_data.signal >= threshold_value] = \
+                (indexed_data.signal - threshold_value) * (365*86400)        
+        else:
+            raise Exception('''Non-standard step (daily, monthly or annual) 
+                            input data is not supported.''')
     else:
-        raise SyntaxError('Parameter event_type accepts string of:'+'\n'+
-                          '"lf" or "lowflow" for low flow / streamflow drought studies'+'\n'+
-                          '"fd" or "flood" for flood studies')
+        raise SyntaxError('''Event argument requires one of the following options:
+                          value - for analysis of raw signal data (all time occurrence,
+                                  unless no data is present);
+                          low - for analysis of minimal values or when event is
+                                defined below threshold level;
+                          high - for analysis of maximal values or when event is
+                                defined above threshold level.''')
+ 
+    # prepare aggregation intervals:
+    indexed_data['month'] = indexed_data.index.month
+    indexed_data['day'] = indexed_data.index.day 
+    indexed_data['year'] = indexed_data.index.year
+    # perform aggregation
+    if htype == 'signal':
+        if event == 'value':
+            if signal_method=='mean':
+                aggreg_data = indexed_data.groupby(step)['signal'].mean().to_frame()  
+            elif signal_method=='sum':
+                aggreg_data = indexed_data.groupby(step)['signal'].sum().to_frame()  
+            elif signal_method=='min':
+                aggreg_data = indexed_data.groupby(step)['signal'].min().to_frame()  
+            elif signal_method=='max':
+                aggreg_data = indexed_data.groupby(step)['signal'].max().to_frame()  
+            else:
+                raise Exception('''Non-standard method for signal processing is 
+                                not supported. Use signal_method to set it to
+                                mean (default), sum, min, max according to 
+                                agglomeration needs.''')  
+        if event == 'low':
+            aggreg_data = indexed_data.groupby(step)['signal'].min().to_frame()  
+        elif event == 'high':
+            aggreg_data = indexed_data.groupby(step)['signal'].max().to_frame()        
+    elif htype == 'occurrence':
+        aggreg_data = indexed_data.groupby(step)['occurrence'].sum().to_frame()
+        if binary_occurrence == True:
+            aggreg_data.loc[aggreg_data['occurrence'] > 0] = 1       
+    elif htype == 'magnitude':
+        aggreg_data = indexed_data.groupby(step).agg({'month':'size', 'volume':'sum'}).rename(columns={'month':'count','volume':'sum'})
+        aggreg_data['magnitude'] = aggreg_data['sum'] / aggreg_data['count']
+        if area != 0:
+            aggreg_data['magnitude'] = aggreg_data['magnitude'] / area    
+        aggreg_data = aggreg_data[['magnitude']]
+
+    else:
+        raise SyntaxError('''Unrecognized htype. Accepted are: signal, 
+                          occurrence, or magnitude.''') 
     
     return aggreg_data
-    
-     
-def fit_simple(x, y, repeats = 10000):
-    '''
-    Function to fit simple harmonic oscillator to the input data using 
-    Fast Fourier Transform. Requires preprocessed, aggregated data. 
-    Returns function parameters and statistics. 
-
-    Parameters
-    ----------
-    x : array of int
-        x-axis time factor.
-    y : array of float/int
-        y-axis variable like flow or occurrence information.
-    repeats : int, optional
-        maximal number of function calls to fit harmonic to data. Increase to
-        try to fit to complicated data. May increase computation cost and time.
-        Default is 10,000.
-        
-    Raises
-    ------
-    Exception    
-        if repeats is to low and the function can't be fit to dataset raises
-        information exception
-    
-    Returns
-    -------
-    dict
-        the dictionary containing fitted function parameters: 'amp', 'omega', 
-        'phase', 'offset', 'freq', 'period', together with statistics 
-        'r2' (percentage of original data variance explained by model), 
-        'y_pred' (predicted values) and 'function' (fitted function object).
-    '''
-    
-    # prepare initial parameters
-    x = np.array(x)
-    y = np.array(y)
-    ff = np.fft.fftfreq(len(x), (x[1]-x[0]))
-    Fyy = abs(np.fft.fft(y))
-    # guessing initial parameters to lower optimization cost
-    guess_freq = abs(ff[np.argmax(Fyy[1:])+1])
-    guess_amp = np.std(y) * 2.**0.5
-    guess_offset = np.mean(y)
-    guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
-    
-    # define simple harmonic function
-    def sinfunc(x, A, w, p, c):  return A * np.sin(w*x-p) + c
-    # fit function curve
-    try:
-        popt, pcov = scipy.optimize.curve_fit(sinfunc, x, y, p0=guess, maxfev = repeats)
-    except:
-        raise Exception("function can't be optimized with defined function calls \
-                        you can try increasing 'repeats' parameter; \n \
-                        however, it is recommended to check the data first, \
-                        as some situations might increase optimization difficulty, \
-                        f.e. constant data. \n \
-                        Please refer to 'maxfev' parameter in 'scipy.optimize.curve_fit' \
-                        for more information.")
-    
-    A, w, p, c = popt
-    f = w/(2.*np.pi)
-    # generate predicted values
-    y_pred = sinfunc(x, *popt)
-    # calculate variance explained by model as r2
-    residuals = y - sinfunc(x, *popt)
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y - np.mean(y))**2)
-    r_squared = 1 - (ss_res / ss_tot)
-    
-    # return control to generate function and/or predictions
-    function = lambda x: c + A * np.sin(w*x-p)
-    return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f,
-            "period": 1./f, "r2": r_squared, "y_pred": y_pred, "function": function}
-    
-
-def fit_sloped(x, y, repeats = 10000):
-    '''
-    Function to fit sloped harmonic oscillator to the input data using 
-    Fast Fourier Transform. Requires preprocessed, aggregated data. 
-    Returns function parameters and statistics. 
-
-    Parameters
-    ----------
-    x : array of int
-        x-axis time factor.
-    y : array of float/int
-        y-axis variable like flow or occurrence information.
-    repeats : int, optional
-        maximal number of function calls to fit harmonic to data. Increase to
-        try to fit to complicated data. May increase computation cost and time.
-        Default is 10,000.
-        
-    Raises
-    ------
-    Exception    
-        if repeats is to low and the function can't be fit to dataset raises
-        information exception
-    
-    Returns
-    -------
-    dict
-        the dictionary containing fitted function parameters: 'amp', 'omega', 
-        'phase', 'offset', 'freq', 'period', together with statistics 
-        'r2' (percentage of original data variance explained by model), 
-        'y_pred' (predicted values) and 'function' (fitted function object).
-    '''
-    
-    # prepare initial parameters
-    x = np.array(x)
-    y = np.array(y)
-    ff = np.fft.fftfreq(len(x), (x[1]-x[0]))
-    Fyy = abs(np.fft.fft(y))
-    # guessing initial parameters to lower optimization cost    
-    guess_freq = abs(ff[np.argmax(Fyy[1:])+1])
-    guess_amp = np.std(y) * 2.**0.5
-    guess_offset = np.mean(y)
-    guess_slope = 0
-    guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset, guess_slope])
-
-    # define sloped harmonic function
-    def sinfunc(x, A, w, p, c, s):  return s * x + A * np.sin(w*x-p) + c
-    try:
-        popt, pcov = scipy.optimize.curve_fit(sinfunc, x, y, p0=guess, maxfev = repeats)
-    except:
-        raise Exception("function can't be optimized with defined function calls \
-                        you can try increasing 'repeats' parameter; \n \
-                        however, it is recommended to check the data first, \
-                        as some situations might increase optimization difficulty, \
-                        f.e. constant data. \n \
-                        Please refer to 'maxfev' parameter in 'scipy.optimize.curve_fit' \
-                        for more information.")
-                        
-    A, w, p, c, s = popt
-    f = w/(2.*np.pi)
-    # generate predicted values    
-    y_pred = sinfunc(x, *popt)
-    # calculate variance explained by model as r2
-    residuals = y - sinfunc(x, *popt)
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y - np.mean(y))**2)
-    r_squared = 1 - (ss_res / ss_tot)
-
-    # return control to generate function and/or predictions
-    function = lambda x: s * x + A * np.sin(w*x-p) + c
-    return {"amp": A, "omega": w, "phase": p, "offset": c, "freq": f, "slope": s,
-            "period": 1./f, "r2": r_squared, "y_pred": y_pred, "function": function}
     
     
 def harmonic(data, htype, no_functions, include_preds):
@@ -295,7 +234,7 @@ def harmonic(data, htype, no_functions, include_preds):
         time indexed and aggregated array object representing model input.
     htype : string
         string representing the type of analysis. Available options are:
-            "flow"       : for analysis of min/max flows
+            "variable"   : for analysis of variable values
             "occurrence" : for analysis of flood/drought occurrence. Please
                            refer to current documentation for limitations 
                            explanation.
@@ -317,10 +256,8 @@ def harmonic(data, htype, no_functions, include_preds):
         include_pres == True.
     '''
     
-    if htype=='flow':
-        data_t = data[[htype]]
-    elif htype=='occurrence':
-        data_t = data[[htype]]
+    data_t = data[[htype]]        
+    if htype=='occurrence':
         # convert sums of event occurrence to occurrence flag:
         # 1 - event occurrence, 0 - lack of event        
         data_t.loc[data_t[htype] > 0] = 1
@@ -336,15 +273,16 @@ def harmonic(data, htype, no_functions, include_preds):
         if i == 1:
             data = data_t[htype]
         x = range(0,len(data))
-        res = fit_simple(x, data)
-        data = data - res['y_pred']
-        harmonic_res['harmonic: '+str(i)] = [res['amp'],res['omega'],res['phase'],
-                                                res['offset'],res['freq'],res['period'],
+        res = host_models.fit_sine(x, data)
+        data = data - res['predictions']
+        harmonic_res['harmonic: '+str(i)] = [res['amp'],res['freq'],res['phase'],
+                                                res['offset'],res['period'],
                                                 res['r2']]
-        harmonic_res.index = ['amp','omega','phase','offset','freq','period',
+        harmonic_res.index = ['amp','freq','phase','offset','period',
                               'r2']
         if include_preds==True:
-            harmonic_preds['harmonic: '+str(i)] = res['y_pred']
+            harmonic_preds['harmonic: '+str(i)] = res['predictions']
+
 
     # include predictions in return if include_preds=True
     # Allows to reduce output size symmetrically to series length
@@ -402,7 +340,7 @@ def data_split(data, train_size):
     return train_y, train_x, test_y, test_x, split_index
 
 
-def stl_calc(data):
+def stl_calc(data, multiplier, repeats, interval):
     '''
     Function calculates trend, seasonal and residual components based on STL
     decomposition method. Period length is assumed based on first harmonic and
@@ -429,11 +367,19 @@ def stl_calc(data):
 
     x = range(0, len(data))
     # calculate initial period length for STL decomposition input
-    res = fit_simple(x, data)
-    periods = int(abs(res['period']))
+    try:
+        res = host_models.fit_sine(x=x, y=data, repeats=repeats)
+        periods = int(abs(res['period'])) * multiplier
+    except:
+        if interval=='M':
+            periods=12
+        elif interval=='D':
+            periods=365
+        else:
+            periods=1
     # control to low period values:
     if periods < 2:
-        periods = 2
+        periods = 2 * multiplier
     # perform STL decomposition
     stl = STL(data, period=periods)
     res = stl.fit()
@@ -444,7 +390,7 @@ def stl_calc(data):
 def topology(predictions, original, slope=0):
     '''
     Performs topological analysis to find best fitted decision threshold for
-    harmonical model. Decides which part of function is interpretted as 
+    harmonic model. Decides which part of function is interpretted as 
     'occurrence' vs 'non-occurrence' based on the highest f1 score of all
     thresholds. Used only if htype of object is set to 'occurrence'.
     
@@ -493,14 +439,119 @@ def topology(predictions, original, slope=0):
     # find decision threshold based on highest f1 score
     threshold = thrs[max_index]
     # make accuracy statistics for best fitted model
-    results = contingency(predictions, threshold, original, slope)       
+    results, predictions = contingency(predictions, threshold, original, slope, True)       
             
     return {'threshold':threshold, 'contingency':results['contingency'],
             'accuracy':results['accuracy'], 'precision':results['precision'],
-            'recall':results['recall'], 'f1score':results['f1score']}
+            'recall':results['recall'], 'f1score':results['f1score'], 
+            'predictions':predictions}
 
 
-def contingency(predictions, threshold, observed, slope):
+def magnitude_topology(predictions, original, slope=0, threshold=None):
+    '''
+    Performs topological analysis to find best fitted decision threshold for
+    harmonic model. Decides which part of function is interpretted as 
+    best-fitting to magnitude distribution based on Kling-Gupta Efficiency, 
+    then performs 'occurrence' vs 'non-occurrence' assesment based on this 
+    magnitude fitted function. Used only if htype of object is set to 
+    'magnitude'.
+    
+    Parameters
+    ----------
+    predictions : array-like
+        model predictions. Must be same length as original.
+    original : array-like
+        original, raw data. Must be same length as predicted.
+    slope : int/float, optional
+        slope value for sloped models only. Affects the slope of decision 
+        threshold. If simple model is compared, slope must be set to 0.
+    threshold : float/int
+        parameter to control behaviour between training and testing sets. 
+        Unchanged means training dataset is analyzed and best-fit threshold
+        must be found. Once testing/validationg, provide threshold computed
+        in training dataset to use it in interpretation.
+
+    Returns
+    -------
+    dict
+        dictionary of results:
+        threshold : float
+            decision threshold for best fitted model.
+        occurrence contingency : list-of-lists
+            contingency table in form of list of lists for occurrence 
+            assessment.
+        occurrence accuracy : float
+            accuracy of the occurrence model based on found threshold.
+        occurrence precision : float
+            precision of the occurrence model based on found threshold.
+        occurrence recall : float
+            recall of the occurrence model based on found threshold.
+        occurrence f1score : float
+            f1 score of the occurrence model based on found threshold. 
+        occurrence predictions : array-like
+            an array of predicted occurrences for magnitude-based model.
+        'magnitude efficiency' : float
+            Kling-Gupta efficiency of magnitude model.
+        'magnitude predictions' : array-like
+            an array of model predicted magnitudes.
+    '''
+    
+    x_range = range(0,len(predictions))
+    if threshold == None:
+        # sort harmonic values
+        data_sorted = -np.sort(-predictions)
+        # prepare decision list for highest f1 score
+        effs = []
+        thrs = []
+        # calculate accuracy statistics for each threshold:   
+        for thr in data_sorted:
+            limits = []
+            if slope != 0:
+                for i in x_range:         
+                    limits.append(thr + slope * i)
+            else:
+                limits = [thr]*len(predictions) 
+            mag_predictions = np.where(predictions > limits, predictions, 0)
+            r2 = rsquared(original, mag_predictions)
+            effs.append(r2)
+            thrs.append(thr)
+            #eff = efficiency_stat(mag_predictions, original, 'kge')
+            #effs.append(eff)
+            #thrs.append(thr)
+            #results = contingency(predictions, thr, original, slope)
+               
+        # find highest f1 score:
+        max_index = effs.index(max(effs))
+        # find decision threshold based on highest f1 score
+        threshold = thrs[max_index] 
+    else:
+        threshold = threshold
+    limits = []
+    if slope != 0:
+        for i in x_range:         
+            limits.append(threshold + slope * i)
+    else:
+        limits = [threshold]*len(predictions) 
+    predictions = np.where(predictions > limits, predictions, 0)
+    
+    occ_prediction = np.where(predictions > 0, 1, 0)
+    occ_original = np.where(original > 0, 1, 0)   
+    occ_results = contingency_stat(occ_prediction, occ_original)
+    
+    mag_results, mag_predictions = efficiency_stat(predictions, original, 'kge', True)
+    
+    return {'threshold': threshold,
+            'occurrence accuracy':occ_results['accuracy'], 
+            'occurrence contingency':occ_results['contingency'], 
+            'occurrence precision':occ_results['precision'], 
+            'occurrence recall':occ_results['recall'], 
+            'occurrence f1score':occ_results['f1score'], 
+            'occurrence predictions':occ_results['predictions'],
+            'magnitude predictions':mag_predictions,
+            'magnitude efficiency':mag_results}   
+
+
+def contingency(predictions, threshold, observed, slope, include_predictions=False):
     '''
     Contingency calculator used to determine contingency statistics for model
     data based on original observations, using threshold found during topological
@@ -518,7 +569,20 @@ def contingency(predictions, threshold, observed, slope):
     predicted = event_predict(predictions, limits) 
     results = contingency_stat(predicted, observed)
     
-    return results
+    if include_predictions==False:
+        return results
+    else:
+        return results, predicted
+
+
+def rsquared(observations, predictions):
+    observations = np.array(observations)
+    predictions = np.array(predictions)
+    residuals = observations - predictions
+    square_res = np.sum(residuals**2)
+    square_tot = np.sum((observations - np.mean(observations))**2)
+    r2 = 1 - (square_res / square_tot)    
+    return r2
 
     
 def event_predict(data, limit):
@@ -560,10 +624,11 @@ def contingency_stat(predictions, original):
     recall = count11/(count11+count10) if count11+count10 > 0 else 0
     f1score = 2*(precision*recall)/(precision+recall) if precision+recall > 0 else 0
     return {'contingency':contingency, 'accuracy':accuracy, 
-            'precision':precision, 'recall':recall, 'f1score':f1score}
+            'precision':precision, 'recall':recall, 'f1score':f1score, 
+            'predictions':predictions}
 
 
-def efficiency_stat(predictions, observations, statistic):
+def efficiency_stat(predictions, observations, statistic, include_predictions=False):
     '''
     Function to calculate efficiency value for continuous model data. Used if
     htype of object is set to 'flow'.
@@ -613,5 +678,7 @@ def efficiency_stat(predictions, observations, statistic):
         alpha = (predictions.std() / mean_pred) / (observations.std() / mean_obs)
         beta = mean_pred / mean_obs
         parameter = 1 - np.sqrt(((r - 1) ** 2) + ((alpha - 1) ** 2) + ((beta - 1) ** 2))
-    return parameter
-
+    if include_predictions==True:
+        return parameter, predictions
+    else:
+        return parameter
