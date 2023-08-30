@@ -1,0 +1,6 @@
+30/8/2023 v.1.1
+host_models.py
+- Bounding limit added for curve finder to lock negative frequency/period values due to physical interpretation. 
+- Default minimization algorithm for least squares changed to Trust Region Reflective algorithm.
+host.py
+- handle error message in model fit due to missing "predictions" when model fail to converge in giver repeats from undescribed attribute error message to RuntimeError.
