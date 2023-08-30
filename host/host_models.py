@@ -82,16 +82,21 @@ def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         guess = np.array([guess_a, guess_f, guess_p, guess_c, guess_s])
         # define simple harmonic function
         def sine(x, A, f, p, c, s):  
-            return s * x + A * np.sin(2 * np.pi * f * x + p) + c        
+            return s * x + A * np.sin(2 * np.pi * f * x + p) + c  
+        bound_low = [-(max(y)),0,-len(y),-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, guess_c])  
         def sine(x, A, f, p, c):  
-            return A * np.sin(2 * np.pi * f * x + p) + c             
+            return A * np.sin(2 * np.pi * f * x + p) + c       
+        bound_low = [-(max(y)),0,-len(y),-max(y)]
+        bound_high = [(max(y)),10000,len(y),max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(sine, x, y, p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats, 
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -204,16 +209,21 @@ def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         # define simple harmonic function
         def sinedamped(x, A, f, p, d, c, s):  
             return s * x + A * np.exp((-d) * x) * np.sin(2 * np.pi * f * x + p) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),np.inf,max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, guess_d, guess_c])  
         def sinedamped(x, A, f, p, d, c):  
             return A * np.exp((-d) * x) * np.sin(2 * np.pi * f * x + p) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-max(y)]
+        bound_high = [(max(y)),10000,len(y),np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(sinedamped, x, y, 
                                                           p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats,
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -320,15 +330,20 @@ def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         # define simple harmonic function
         def ampmod(x, A, f, B, c, s):  
             return s * x + A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * f * x)) + c
+        bound_low = [-(max(y)),0,-len(y),-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, 0, guess_c])  
         def ampmod(x, A, f, B, c):  
             return A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * f * x)) + c
+        bound_low = [-(max(y)),0,-len(y),-max(y)]
+        bound_high = [(max(y)),10000,len(y),max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(ampmod, x, y, p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats,
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -440,15 +455,20 @@ def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         # define simple harmonic function
         def freqmod(x, A, f, p, m, c, s):  
             return s * x + A * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p)) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),np.inf,max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, 0, guess_c])  
         def freqmod(x, A, f, p, m, c):  
             return A * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p)) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-max(y)]
+        bound_high = [(max(y)),10000,len(y),np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(freqmod, x, y, p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats,
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -562,15 +582,20 @@ def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge')
         # define simple harmonic function
         def modulated(x, A, f, p, B, m, c, s):  
             return s * x + A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p))) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-np.inf,-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),np.inf,np.inf,max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, 0, 0, guess_c])  
         def modulated(x, A, f, p, B, m, c):  
             return A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p))) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-np.inf,-max(y)]
+        bound_high = [(max(y)),10000,len(y),np.inf,np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(modulated, x, y, p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats,
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -684,15 +709,20 @@ def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
         # define simple harmonic function
         def dampedmod(x, A, f, p, d, B, m, c, s):  
             return s * x + A * np.exp((-d) * x) * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p))) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-np.inf,-np.inf,-max(y),-np.inf]
+        bound_high = [(max(y)),10000,len(y),np.inf,np.inf,np.inf,max(y),np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, guess_d, 0, 0, guess_c])  
         def dampedmod(x, A, f, p, d, B, m, c):  
             return A * np.exp((-d) * x) * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * x) + p))) + c
+        bound_low = [-(max(y)),0,-len(y),-np.inf,-np.inf,-np.inf,-max(y)]
+        bound_high = [(max(y)),10000,len(y),np.inf,np.inf,np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters, covariance = scipy.optimize.curve_fit(dampedmod, x, y, p0=guess, 
-                                                          maxfev = repeats)
+                                                          maxfev = repeats,
+                                                          bounds=(bound_low,bound_high))
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -807,23 +837,29 @@ def fit_incdec_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
             return s * x + A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * np.exp(-a * x) * x) + p))) + c 
         def sineincreasing(x, A, f, p, c, s, B, m, a):  
             return s * x + A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * (f+a*x) * x) + p))) + c 
+        bound_low = [-max(y),0,-len(y),-max(y),-np.inf,-np.inf,-np.inf,-np.inf]
+        bound_high = [max(y),10000,len(y),max(y),np.inf,np.inf,np.inf,np.inf]
     else:
         # array of initial parameters
         guess = np.array([guess_a, guess_f, guess_p, guess_c, 0, 0, 0])  
         def sinedecreasing(x, A, f, p, c, B, m, a):  
             return A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * f * np.exp(-a * x) * x) + p))) + c  
         def sineincreasing(x, A, f, p, c, B, m, a):  
-            return A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * (f+a*x) * x) + p))) + c          
+            return A * np.sin(f * x) * (1 + B * np.sin(2 * np.pi * (f * x + m * np.cos(2 * np.pi * (f+a*x) * x) + p))) + c   
+        bound_low = [-max(y),0,-len(y),-max(y),-np.inf,-np.inf,-np.inf]
+        bound_high = [max(y),10000,len(y),max(y),np.inf,np.inf,np.inf]
     # fit function curve and optimize parameters by least squares method
     try:
         parameters_dec, covariance_dec = scipy.optimize.curve_fit(sinedecreasing, 
                                                                   x, y, 
                                                                   p0=guess, 
-                                                                  maxfev = repeats)
+                                                                  maxfev = repeats,
+                                                                  bounds=(bound_low,bound_high))
         parameters_inc, covariance_inc = scipy.optimize.curve_fit(sineincreasing, 
                                                                   x, y, 
                                                                   p0=guess, 
-                                                                  maxfev = repeats)        
+                                                                  maxfev = repeats,
+                                                                  bounds=(bound_low,bound_high))        
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
