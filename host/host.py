@@ -111,9 +111,6 @@ class Harmonics:
         include_predictions : bool, default: False
             allows to control returned values of the found function. Must be
             set to True for values to be accessible through .values() method.
-        binary_occurrence : bool, default: True
-            allows to control the type of occurrence classification from
-            binary (True) to weighted (False).
             
         Slots set
         -------
@@ -267,22 +264,11 @@ class Host:
         repeats: int, default: 10000
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
-        multiplier : int, default: 1
-            affects the period of STL decomposition, by multiplying the found
-            period by this number.
-        include_damped : bool, default: True
-            if set to False, damped models won't be used during fitting.
-        decision_statistic : str, default: 'r2'
-            statistic selection for best-fit model selection, can be changed to
-            efficiency metric provided in next argument.
-        efficiency: str, default: 'kge'
+        xxxxxxx flow_statistic: str, default: 'kge'
             the efficiency statistic to use when comparing flow distributions.
             The default 'kge' calls for Kling-Gupta efficiency. Other accepted
             option is 'nse' for Nash-Sutcliffe efficiency. This atribute is 
-            called only if harmonic type of the object is set to 'flow'.
-        binary_occurrence : bool, default: True
-            allows to control the type of occurrence classification from
-            binary (True) to weighted (False).
+            called only if harmonic type of the object is set to# 'flow'.
             
         Slots set
         -------
@@ -542,15 +528,6 @@ class Trend:
         repeats: int
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
-        include_damped : bool, default: True
-            if set to False, damped models won't be used during fitting.
-        statistic : str
-            statistic selection for best-fit model selection, can be changed to
-            efficiency metric provided in next argument.
-        efficiency: str
-            the efficiency statistic to use when comparing flow distributions.
-            The default 'kge' calls for Kling-Gupta efficiency. Other accepted
-            option is 'nse' for Nash-Sutcliffe efficiency.
             
         Slots set
         -------
@@ -676,10 +653,13 @@ class Trend:
             model = models[maxscore]
         
         # assigning results to slots for accessing once model is generated
-        self.predictions = model['predictions']
-        self.function = model['function']
-        self.equation = model['equation']      
-        self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+        try:
+            self.predictions = model['predictions']
+            self.function = model['function']
+            self.equation = model['equation']      
+            self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+        except:
+            raise RuntimeError('Model failed to converge with '+str(repeats)+' repeats. Increase repeats.')
         
         
 class Seasonality:
@@ -717,15 +697,6 @@ class Seasonality:
         repeats: int
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
-        include_damped : bool, default: True
-            if set to False, damped models won't be used during fitting.
-        statistic : str, default: 'r2'
-            statistic selection for best-fit model selection, can be changed to
-            efficiency metric provided in next argument.
-        efficiency: str, default: 'kge'
-            the efficiency statistic to use when comparing flow distributions.
-            The default 'kge' calls for Kling-Gupta efficiency. Other accepted
-            option is 'nse' for Nash-Sutcliffe efficiency.
             
         Slots set
         -------
@@ -804,10 +775,13 @@ class Seasonality:
             model = models[maxscore]
         
         # assigning results to slots for accessing once model is generated
-        self.predictions = model['predictions']
-        self.function = model['function']
-        self.equation = model['equation']      
-        self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+        try:    
+            self.predictions = model['predictions']
+            self.function = model['function']
+            self.equation = model['equation']      
+            self.parameters = {key: value for key, value in model.items() if key not in ["function", "equation", "predictions"]}
+        except:
+            raise RuntimeError('Model failed to converge with '+str(repeats)+' repeats. Increase repeats.')
    
     
 class Combined:
