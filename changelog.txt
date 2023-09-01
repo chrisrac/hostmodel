@@ -1,6 +1,21 @@
+31/8/2023 v1.1.1
+host_models.py / host.py
+- Added .fit() argument "use_bounds" as bool to determine if user wants to keep negative frequency as option (default, faster), 
+or limit fitting to only positive numbers (for frequency/period, slower). Note that negative frequency affects only function 
+movement direction, and the number itself is possible and interpretable same way as positive value. 
+Analysis based on 300 random datasets indicates keeping negative frequency as option results in better fit models, 
+but when visualizing period, an absolute value should be used. Final choice should include testing both options and 
+making informed decision adjusted to used data.
+use .fit(use_bounds=True) to lock only positive values while fitting (slower), and .fit(use_bounds=False) or .fit() 
+[as False is default] to allow all values (faster).
+- documentation: updated docstings for missing parameters descriptions
+- error control: raise TypeError if multiplier is not a positive integer with according message
+
+
 30/8/2023 v.1.1
 host_models.py
 - Bounding limit added for curve finder to lock negative frequency/period values due to physical interpretation. 
 - Default minimization algorithm for least squares changed to Trust Region Reflective algorithm.
 host.py
-- handle error message in model fit due to missing "predictions" when model fail to converge in giver repeats from undescribed attribute error message to RuntimeError.
+- handle error message in model fit due to missing "predictions" when model fail to converge in giver repeats from 
+undescribed attribute error message to RuntimeError.
