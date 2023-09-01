@@ -256,19 +256,41 @@ class Host:
         self.threshold_method)
         
                 
-    def fit(self, repeats=1000000, multiplier=1, include_damped=True, decision_statistic='r2', efficiency='kge', binary_occurrence=True):
+    def fit(self, repeats=1000000, multiplier=1, include_damped=True, decision_statistic='r2', 
+            efficiency='kge', binary_occurrence=True, use_bounds=False):
         ''' Fitting method for finding the Host model.
         
         Parameters
         ----------
-        repeats: int, default: 10000
+        repeats: int, default: 1000000
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
-        xxxxxxx flow_statistic: str, default: 'kge'
+        multiplier: int, default: 1
+            integer value to be used as multiplier of period used during STL
+            decomposition. By default decomposition uses first period of function
+            found by Fast Fourier Transform. this period might be increased by
+            multiplier argument. Only positive integer numbers are accepted. 
+            Default of 1 means no multiplication. 
+        include_damped: bool, default: True
+            boolean flag to modify fitted models. If damped models are not desired,
+            setting this to False will exclude them from fitting.
+        decision_statistic: str, default: 'r2'
+            string determining which characteristic should be used when choosing
+            best fitted model. Default 'r2' might be changed to used effciency.
+        efficiency: str, default: 'kge'
             the efficiency statistic to use when comparing flow distributions.
             The default 'kge' calls for Kling-Gupta efficiency. Other accepted
-            option is 'nse' for Nash-Sutcliffe efficiency. This atribute is 
-            called only if harmonic type of the object is set to# 'flow'.
+            option is 'nse' for Nash-Sutcliffe efficiency. 
+        binary_occurrence: bool, default: True
+            boolean flag to modify binary occurrence fitter. Default setting True
+            means occurrence parameter is using binary classification. If set to 
+            False will cause weighted occurrence calculation.
+        use_bounds: bool, default: False
+            boolean flag allowing to control fitting process. Default False means
+            all parameter values are possible, including negative frequencies 
+            (periods). Set to True to lock to only positive frequencies. Using 
+            bounds might slower the optimization and lower fit efficiencies. 
+            
             
         Slots set
         -------
@@ -310,6 +332,9 @@ class Host:
             for flow: efficiency, efficiency statistic.
         '''
         
+        if not isinstance(multiplier, int) or multiplier < 1:
+            raise TypeError('multiplier must be a positive integer (of value 1 or higher).')      
+            
         # performing data preprocessing, including identification of periods
         # with event occurring and aggregation to provided interval         
         aggregated = host_functions.preprocess(self.data, 
@@ -338,10 +363,10 @@ class Host:
         test_original = np.array(aggregated[self.htype].iloc[split_index:])        
         # fitting the models using their Classes
         trend_model = Trend(t_train_x, t_train_y)
-        trend_model.fit(repeats, include_damped, decision_statistic, efficiency)
+        trend_model.fit(repeats, include_damped, decision_statistic, efficiency, use_bounds)
         self.trendmodel = trend_model
         seasonal_model = Seasonality(s_train_x, s_train_y)
-        seasonal_model.fit(repeats, include_damped, decision_statistic, efficiency)   
+        seasonal_model.fit(repeats, include_damped, decision_statistic, efficiency, use_bounds)   
         self.seasonalmodel = seasonal_model
         combined_model = Combined(trend_model, seasonal_model)
         combined_model.fit()
@@ -518,16 +543,32 @@ class Trend:
             return 'Trend HOST model object: {0} \n \
                     Parameters: {1}'.format(self.equation, strpar)
 
-    def fit(self, repeats, include_damped, statistic, efficiency):
+    def fit(self, repeats, include_damped, statistic, efficiency, use_bounds):
         ''' Fitting method for finding the best-fit function. 
         Chooses from all models available in host_models and autofind best-fit.
         To find specific model parameters use model-specific classes.
         
         Parameters
-        ----------
+        ----------     
         repeats: int
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
+        include_damped: bool, default: True
+            boolean flag to modify fitted models. If damped models are not desired,
+            setting this to False will exclude them from fitting.
+        statistic: str, default: 'r2'
+            string determining which characteristic should be used when choosing
+            best fitted model. Default 'r2' might be changed to used effciency.
+        efficiency: str, default: 'kge'
+            the efficiency statistic to use when comparing flow distributions.
+            The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+            option is 'nse' for Nash-Sutcliffe efficiency. 
+        use_bounds: bool, default: False
+            boolean flag allowing to control fitting process. Default False means
+            all parameter values are possible, including negative frequencies 
+            (periods). Set to True to lock to only positive frequencies. Using 
+            bounds might slower the optimization and lower fit efficiencies. 
+                
             
         Slots set
         -------
@@ -545,52 +586,52 @@ class Trend:
         warnmsg2 = ' repeats. Trying different models. Increase repeats argument to include.'
         
         try:
-            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency)
+            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tsine = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Sine'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:            
-            tsines = host_models.fit_sine(self.x, self.y, True, repeats, efficiency)
+            tsines = host_models.fit_sine(self.x, self.y, True, repeats, efficiency, use_bounds)
         except:
             tsines = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Sine sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency)
+            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tampmod = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Ampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tampmods = host_models.fit_amplitude_mod(self.x, self.y, True, repeats, efficiency)
+            tampmods = host_models.fit_amplitude_mod(self.x, self.y, True, repeats, efficiency, use_bounds)
         except:
             tampmods = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Ampmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency)
+            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tfreqmod = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Freqmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tfreqmods = host_models.fit_frequency_mod(self.x, self.y, True, repeats, efficiency)
+            tfreqmods = host_models.fit_frequency_mod(self.x, self.y, True, repeats, efficiency, use_bounds)
         except:
             tfreqmods = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Freqmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency)
+            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tmodul = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Modulated'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tmoduls = host_models.fit_modulated(self.x, self.y, True, repeats, efficiency)
+            tmoduls = host_models.fit_modulated(self.x, self.y, True, repeats, efficiency, use_bounds)
         except:
             tmoduls = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Modulated sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency)
+            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tincdec = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Incdec'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tincdecs = host_models.fit_incdec_mod(self.x, self.y, True, repeats, efficiency)
+            tincdecs = host_models.fit_incdec_mod(self.x, self.y, True, repeats, efficiency, use_bounds)
         except:
             tincdecs = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Incdec sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
@@ -609,22 +650,22 @@ class Trend:
         
         if include_damped==True:
             try:
-                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency)
+                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency, use_bounds)
             except:
                 tdamped = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Damped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
             try:
-                tdampeds = host_models.fit_damped(self.x, self.y, True, repeats, efficiency)
+                tdampeds = host_models.fit_damped(self.x, self.y, True, repeats, efficiency, use_bounds)
             except:
                 tdampeds = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Damped sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
             try:
-                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency)
+                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
             except:
                 tdampmod = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Dampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
             try:
-                tdampmods = host_models.fit_damped_mod(self.x, self.y, True, repeats, efficiency)        
+                tdampmods = host_models.fit_damped_mod(self.x, self.y, True, repeats, efficiency, use_bounds)        
             except:
                 tdampmods = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Dampmod sloped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
@@ -687,7 +728,7 @@ class Seasonality:
             return 'Seasonality HOST model object: {0} \n \
                     Parameters: {1}'.format(self.equation, strpar)
 
-    def fit(self, repeats, include_damped, statistic, efficiency):
+    def fit(self, repeats, include_damped, statistic, efficiency, use_bounds):
         ''' Fitting method for finding the best-fit function. 
         Chooses from all models available in host_models and autofind best-fit.
         To find specific model parameters use model-specific classes.
@@ -697,6 +738,22 @@ class Seasonality:
         repeats: int
             integer representing the maximum number of function calls. 
             Increasing this number significantly might lower the performance.
+        include_damped: bool, default: True
+            boolean flag to modify fitted models. If damped models are not desired,
+            setting this to False will exclude them from fitting.
+        statistic: str, default: 'r2'
+            string determining which characteristic should be used when choosing
+            best fitted model. Default 'r2' might be changed to used effciency.
+        efficiency: str, default: 'kge'
+            the efficiency statistic to use when comparing flow distributions.
+            The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+            option is 'nse' for Nash-Sutcliffe efficiency. 
+        use_bounds: bool, default: False
+            boolean flag allowing to control fitting process. Default False means
+            all parameter values are possible, including negative frequencies 
+            (periods). Set to True to lock to only positive frequencies. Using 
+            bounds might slower the optimization and lower fit efficiencies. 
+            
             
         Slots set
         -------
@@ -714,27 +771,27 @@ class Seasonality:
         warnmsg2 = ' repeats. Trying different models. Increase repeats argument to include.'
         
         try:
-            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency)
+            tsine = host_models.fit_sine(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tsine = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Sine'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency)
+            tampmod = host_models.fit_amplitude_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tampmod = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Ampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency)
+            tfreqmod = host_models.fit_frequency_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tfreqmod = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Freqmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency)
+            tmodul = host_models.fit_modulated(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tmodul = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Modulated'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
         try:
-            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency)
+            tincdec = host_models.fit_incdec_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
         except:
             tincdec = {statistic: np.nan, efficiency: np.nan}
             warnings.warn('Incdec'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
@@ -748,12 +805,12 @@ class Seasonality:
         
         if include_damped==True:
             try:
-                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency)
+                tdamped = host_models.fit_damped(self.x, self.y, False, repeats, efficiency, use_bounds)
             except:
                 tdamped = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Damped'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)
             try:
-                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency)
+                tdampmod = host_models.fit_damped_mod(self.x, self.y, False, repeats, efficiency, use_bounds)
             except:
                 tdampmod = {statistic: np.nan, efficiency: np.nan}
                 warnings.warn('Dampmod'+warnmsg1+str(repeats)+warnmsg2, IterationWarning)

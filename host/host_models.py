@@ -21,7 +21,7 @@ pd.set_option('mode.chained_assignment', None)
 import scipy.optimize
 import host_functions
 
-def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit simple harmonic oscillator to the input data. 
     Requires preprocessed, aggregated data. 
@@ -41,6 +41,15 @@ def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -94,9 +103,13 @@ def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         bound_high = [(max(y)),10000,len(y),max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(sine, x, y, p0=guess, 
-                                                          maxfev = repeats, 
-                                                          bounds=(bound_low,bound_high))
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(sine, x, y, p0=guess, 
+                                                              maxfev = repeats, 
+                                                              bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(sine, x, y, p0=guess, 
+                                                              maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -146,7 +159,7 @@ def fit_sine(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
     return results
     
 
-def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit dumped sine to the input data. Requires preprocessed, 
     aggregated data. Returns function parameters and statistics. 
@@ -165,6 +178,15 @@ def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -220,10 +242,15 @@ def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
         bound_high = [(max(y)),10000,len(y),np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(sinedamped, x, y, 
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(sinedamped, x, y, 
                                                           p0=guess, 
                                                           maxfev = repeats,
                                                           bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(sinedamped, x, y, 
+                                                          p0=guess, 
+                                                          maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -273,7 +300,7 @@ def fit_damped(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
     return results
 
 
-def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit amplitude modulated sine to the input data. 
     Requires preprocessed, aggregated data. 
@@ -293,6 +320,15 @@ def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -341,9 +377,13 @@ def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         bound_high = [(max(y)),10000,len(y),max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(ampmod, x, y, p0=guess, 
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(ampmod, x, y, p0=guess, 
                                                           maxfev = repeats,
                                                           bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(ampmod, x, y, p0=guess, 
+                                                          maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -393,7 +433,7 @@ def fit_amplitude_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
     return results
 
 
-def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit frequency modulated sine to the input data. 
     Requires preprocessed, aggregated data. 
@@ -413,6 +453,15 @@ def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -466,9 +515,13 @@ def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
         bound_high = [(max(y)),10000,len(y),np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(freqmod, x, y, p0=guess, 
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(freqmod, x, y, p0=guess, 
                                                           maxfev = repeats,
                                                           bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(freqmod, x, y, p0=guess, 
+                                                              maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -520,7 +573,7 @@ def fit_frequency_mod(x, y, include_slope=False, repeats = 500000, efficiency='k
     return results
 
 
-def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit amplitude and frequency modulated sine to the input data. 
     Requires preprocessed, aggregated data. 
@@ -540,6 +593,15 @@ def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge')
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -593,9 +655,13 @@ def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge')
         bound_high = [(max(y)),10000,len(y),np.inf,np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(modulated, x, y, p0=guess, 
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(modulated, x, y, p0=guess, 
                                                           maxfev = repeats,
                                                           bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(modulated, x, y, p0=guess, 
+                                                          maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -645,7 +711,7 @@ def fit_modulated(x, y, include_slope=False, repeats = 500000, efficiency='kge')
     return results
 
 
-def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit damped amplitude and frequency modulated sine to the input data. 
     Requires preprocessed, aggregated data. 
@@ -665,6 +731,15 @@ def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -720,9 +795,13 @@ def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
         bound_high = [(max(y)),10000,len(y),np.inf,np.inf,np.inf,max(y)]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters, covariance = scipy.optimize.curve_fit(dampedmod, x, y, p0=guess, 
+        if use_bounds==True:
+            parameters, covariance = scipy.optimize.curve_fit(dampedmod, x, y, p0=guess, 
                                                           maxfev = repeats,
                                                           bounds=(bound_low,bound_high))
+        else:
+            parameters, covariance = scipy.optimize.curve_fit(dampedmod, x, y, p0=guess, 
+                                                          maxfev = repeats)
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
@@ -772,7 +851,7 @@ def fit_damped_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
     return results    
     
 
-def fit_incdec_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'):
+def fit_incdec_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge',use_bounds=False):
     '''
     Function to fit amplitude and frequency modulated period changing sine to 
     the input data. 
@@ -793,6 +872,15 @@ def fit_incdec_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
         maximal number of function calls to fit harmonic to data. Increase to
         try to fit to complicated data. May increase computation cost and time.
         Default is 500000.
+    efficiency: str, default: 'kge'
+        the efficiency statistic to use when comparing flow distributions.
+        The default 'kge' calls for Kling-Gupta efficiency. Other accepted
+        option is 'nse' for Nash-Sutcliffe efficiency. 
+    use_bounds: bool, default: False
+        boolean flag allowing to control fitting process. Default False means
+        all parameter values are possible, including negative frequencies 
+        (periods). Set to True to lock to only positive frequencies. Using 
+        bounds might slower the optimization and lower fit efficiencies. 
         
     Raises
     ------
@@ -850,16 +938,26 @@ def fit_incdec_mod(x, y, include_slope=False, repeats = 500000, efficiency='kge'
         bound_high = [max(y),10000,len(y),max(y),np.inf,np.inf,np.inf]
     # fit function curve and optimize parameters by least squares method
     try:
-        parameters_dec, covariance_dec = scipy.optimize.curve_fit(sinedecreasing, 
+        if use_bounds==True:
+            parameters_dec, covariance_dec = scipy.optimize.curve_fit(sinedecreasing, 
                                                                   x, y, 
                                                                   p0=guess, 
                                                                   maxfev = repeats,
                                                                   bounds=(bound_low,bound_high))
-        parameters_inc, covariance_inc = scipy.optimize.curve_fit(sineincreasing, 
+            parameters_inc, covariance_inc = scipy.optimize.curve_fit(sineincreasing, 
                                                                   x, y, 
                                                                   p0=guess, 
                                                                   maxfev = repeats,
-                                                                  bounds=(bound_low,bound_high))        
+                                                                  bounds=(bound_low,bound_high))   
+        else:
+            parameters_dec, covariance_dec = scipy.optimize.curve_fit(sinedecreasing, 
+                                                                      x, y, 
+                                                                      p0=guess, 
+                                                                      maxfev = repeats)
+            parameters_inc, covariance_inc = scipy.optimize.curve_fit(sineincreasing, 
+                                                                      x, y, 
+                                                                      p0=guess, 
+                                                                      maxfev = repeats)   
     except:
         raise Exception("function can't be optimized with defined function calls \
                         you can try increasing 'repeats' parameter; \n \
