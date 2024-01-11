@@ -1,6 +1,14 @@
 ## Harmonic Oscillator Seasonal Trend (HOST) Model for analyzing the reoccurring nature of extreme events
 <br/>
 
+### Important notice
+1/11/24: the code is currently under revision and modifications and updates are being tested. 
+Current tasks: 
+- [ ] code optimization, 
+- [ ] changes in magnitude calculation 
+- [ ] changes in topology analysis.
+New version will be issued once tests are finished.
+
 ### Description
 The Harmonic Oscillator Seasonal-Trend *hostmodel* is a Python package that allows for automated analysis and pattern recognition in time-series data with varying time domains. The software performs the decomposition of data into short- and long-term components and uses a range of modified wave functions to model both behaviors. Waveform synthesis is performed to compose the combined model, incorporating both components. The model allows for the extraction of n- harmonics from the data, or signal (representing any time-series data) analysis, as well as parametric assessment, that includes: (1) occurrence analysis (as binary classification) with related decision thresholds determined during topological analysis; (2) magnitude; and (3) values assessment. 
 This package contains tools for full HOST model calculation according to following sheme:
