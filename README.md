@@ -2,7 +2,7 @@
 <br/>
 
 ### Important notice
-1/11/24: the code is currently under revision and modifications and updates are being tested. 
+The code is currently under revision and modifications and updates are being tested. 
 Current tasks: 
 - [ ] code optimization, 
 - [ ] changes in magnitude calculation 
@@ -19,14 +19,10 @@ This software can be used for a wide range of evenets analysis, examples include
 <br/>
 
 ### How to cite. 
-If you use this package, please include the reference below [temporary reference]:
+If you use this package, please include the references below:
+> Raczyński K., Dyer J., 2024, HOST: Harmonic Oscillator Seasonal-trend Model for Analyzing the Reoccurring Nature of Extreme Events. SoftwareX. 27, 101771. https://doi.org/10.1016/j.softx.2024.101771<br/>
+> Raczyński K., Dyer J., 2024, Utilizing Waveform Synthesis in Harmonic Oscillator Seasonal Trend Model for Short- and Long-term Streamflow Drought Modeling and Forecasting. Journal of Hydroinformatics. 26(4), 800-818 https://doi.org/10.2166/hydro.2024.229<br/>
 > Raczyński K., Dyer J., 2023, Harmonic oscillator seasonal trend (HOST) model for hydrological drought pattern identification and analysis, Journal of Hydrology, 620, B, 129514, https://doi.org/10.1016/j.jhydrol.2023.129514
-<br/>
-
-You can check below publications for details on HOST application: 
-- Raczyński K., Dyer J., 202X, Harmonic Oscillator Seasonal-Trend Model For Analyzing the Reoccurring Nature of Extreme Events, (publication process)
-- Raczyński K., Dyer J., 202X, Utilizing Waveform Synthesis in Harmonic Oscillator Seasonal-Trend Model For Short- and Long-term Streamflow Extremes Modelling And Forecasting, (publication process)
-- Raczyński K., Dyer J., 2023, Harmonic oscillator seasonal trend (HOST) model for hydrological drought pattern identification and analysis, Journal of Hydrology, 620, B, 129514, https://doi.org/10.1016/j.jhydrol.2023.129514
 <br/>
 <br/>
 
